@@ -8,35 +8,35 @@ export class EntradaProdutoRepository {
   async criar(entradaProduto) {
     const query = `
       INSERT INTO entradas_produtos 
-      (produto_id, doador_id, quantidade, data_entrada, data_validade, lote, observacoes, responsavel)
+      (tipo_produto, produto, quantidade, unidade, data_entrada, responsavel, parceiro, documento)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `
     const [result] = await this.db.execute(query, [
-      entradaProduto.produtoId,
-      entradaProduto.doadorId,
+      entradaProduto.tipo_produto,
+      entradaProduto.produto,
       entradaProduto.quantidade,
-      entradaProduto.dataEntrada,
-      entradaProduto.dataValidade,
-      entradaProduto.lote,
-      entradaProduto.observacoes,
-      entradaProduto.responsavel
+      entradaProduto.unidade,
+      entradaProduto.data_entrada,
+      entradaProduto.responsavel,
+      entradaProduto.parceiro,
+      entradaProduto.documento
     ])
     return result.insertId
   }
 
   async listar() {
     const query = `
-      SELECT 
-        ep.*,
-        p.nome as produto_nome,
-        d.nome as doador_nome
-      FROM entradas_produtos ep
-      JOIN produtos p ON ep.produto_id = p.id
-      LEFT JOIN doadores d ON ep.doador_id = d.id
-      ORDER BY ep.data_registro DESC
+      SELECT * FROM entradas_produtos 
+      ORDER BY data_registro DESC
     `
     const [rows] = await this.db.execute(query)
-    return rows
+    return rows.map(row => new EntradaProduto(row))
+  }
+
+  async buscarPorId(id) {
+    const query = 'SELECT * FROM entradas_produtos WHERE id = ?'
+    const [rows] = await this.db.execute(query, [id])
+    return rows.length > 0 ? new EntradaProduto(rows[0]) : null
   }
 
   async excluir(id) {
