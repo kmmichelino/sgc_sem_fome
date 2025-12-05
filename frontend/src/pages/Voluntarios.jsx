@@ -1,18 +1,27 @@
 import { useState, useEffect } from 'react'
+import { getVoluntarios, createVoluntario, updateVoluntario, deleteVoluntario } from '../services/api'
 
 export default function Voluntarios() {
   const [voluntarios, setVoluntarios] = useState([])
-  const [paginaAtual, setPaginaAtual] = useState(1)
-  const itensPorPagina = 10
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
+  const [selectedVoluntario, setSelectedVoluntario] = useState(null)
+  const [editData, setEditData] = useState({})
+  const [showUpdateMessage, setShowUpdateMessage] = useState(false)
+  const [showCreateMessage, setShowCreateMessage] = useState(false)
+  const [showDeleteMessage, setShowDeleteMessage] = useState(false)
   const [formData, setFormData] = useState({
     nome: '',
     cpf: '',
     telefone: '',
     email: '',
-    nomeUsuario: '',
+    nome_usuario: '',
     senha: '',
-    turnoDisponivel: '',
-    responsavelPor: {
+    turno_disponivel: '',
+    responsavel_por: {
       beneficiados: false,
       entradaProdutos: false,
       financeiro: false,
@@ -20,13 +29,6 @@ export default function Voluntarios() {
       saidaProdutos: false
     }
   })
-  const [erros, setErros] = useState({})
-  const [showForm, setShowForm] = useState(false)
-  const [editando, setEditando] = useState(false)
-  const [itemEditando, setItemEditando] = useState(null)
-  const [modalExcluir, setModalExcluir] = useState(false)
-  const [itemExcluir, setItemExcluir] = useState(null)
-  const [voluntarioAtualizado, setVoluntarioAtualizado] = useState(false)
 
   useEffect(() => {
     carregarVoluntarios()
@@ -34,22 +36,19 @@ export default function Voluntarios() {
 
   const carregarVoluntarios = async () => {
     try {
-      const voluntariosSalvos = JSON.parse(localStorage.getItem('voluntarios') || '[]')
-      
-      const voluntariosIniciais = [
-        { id: 1, cod_voluntario: 1, nome: 'Ana Silva', cpf: '123.456.789-01', telefone: '(11) 99999-1111', email: 'ana@ong.com', nomeUsuario: 'ana.silva', turnoDisponivel: 'Manhã', responsavelPor: ['Beneficiados', 'Financeiro'] },
-        { id: 2, cod_voluntario: 2, nome: 'Carlos Santos', cpf: '987.654.321-02', telefone: '(11) 99999-2222', email: 'carlos@ong.com', nomeUsuario: 'carlos.santos', turnoDisponivel: 'Integral', responsavelPor: ['Entrada de Produtos', 'Saída de Produtos'] },
-        { id: 3, cod_voluntario: 3, nome: 'Maria Oliveira', cpf: '111.222.333-03', telefone: '(11) 99999-3333', email: 'maria@ong.com', nomeUsuario: 'maria.oliveira', turnoDisponivel: 'Tarde', responsavelPor: ['Patrocinadores'] }
-      ]
-      
-      if (voluntariosSalvos.length === 0) {
-        localStorage.setItem('voluntarios', JSON.stringify(voluntariosIniciais))
-        setVoluntarios(voluntariosIniciais.sort((a, b) => a.nome.localeCompare(b.nome)))
-      } else {
-        setVoluntarios(voluntariosSalvos.sort((a, b) => a.nome.localeCompare(b.nome)))
-      }
+      const data = await getVoluntarios()
+      setVoluntarios(data.sort((a, b) => a.nome.localeCompare(b.nome)))
     } catch (error) {
       console.error('Erro ao carregar voluntários:', error)
+      // Fallback para dados iniciais se a API falhar
+      const voluntariosIniciais = [
+        { id: 1, nome: 'Ana Silva', cpf: '123.456.789-01', telefone: '(11) 99999-1111', email: 'ana@ong.com', nome_usuario: 'ana.silva', turno_disponivel: 'Manhã', responsavel_por: '["Beneficiados", "Financeiro"]', status: 'Ativo' },
+        { id: 2, nome: 'Carlos Santos', cpf: '987.654.321-02', telefone: '(11) 99999-2222', email: 'carlos@ong.com', nome_usuario: 'carlos.santos', turno_disponivel: 'Integral', responsavel_por: '["Entrada de Produtos", "Saída de Produtos"]', status: 'Ativo' },
+        { id: 3, nome: 'Maria Oliveira', cpf: '111.222.333-03', telefone: '(11) 99999-3333', email: 'maria@ong.com', nome_usuario: 'maria.oliveira', turno_disponivel: 'Tarde', responsavel_por: '["Patrocinadores"]', status: 'Ativo' }
+      ]
+      setVoluntarios(voluntariosIniciais.sort((a, b) => a.nome.localeCompare(b.nome)))
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -71,33 +70,18 @@ export default function Voluntarios() {
   const handleResponsavelChange = (area) => {
     setFormData({
       ...formData,
-      responsavelPor: {
-        ...formData.responsavelPor,
-        [area]: !formData.responsavelPor[area]
+      responsavel_por: {
+        ...formData.responsavel_por,
+        [area]: !formData.responsavel_por[area]
       }
     })
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
-    const novosErros = {}
-    if (!formData.nome) novosErros.nome = 'Preenchimento obrigatório'
-    if (!formData.cpf) novosErros.cpf = 'Preenchimento obrigatório'
-    if (!formData.telefone) novosErros.telefone = 'Preenchimento obrigatório'
-    if (!formData.email) novosErros.email = 'Preenchimento obrigatório'
-    if (!formData.nomeUsuario) novosErros.nomeUsuario = 'Preenchimento obrigatório'
-    if (!formData.senha) novosErros.senha = 'Preenchimento obrigatório'
-    
-    setErros(novosErros)
-    
-    if (Object.keys(novosErros).length > 0) {
-      return
-    }
-    
     try {
-      const responsaveis = Object.keys(formData.responsavelPor)
-        .filter(key => formData.responsavelPor[key])
+      const responsaveis = Object.keys(formData.responsavel_por)
+        .filter(key => formData.responsavel_por[key])
         .map(key => {
           const nomes = {
             beneficiados: 'Beneficiados',
@@ -109,32 +93,33 @@ export default function Voluntarios() {
           return nomes[key]
         })
       
-      const novoVoluntario = {
-        id: Date.now(),
-        cod_voluntario: voluntarios.length + 1,
+      const dadosVoluntario = {
         nome: formData.nome,
         cpf: formData.cpf,
         telefone: formData.telefone,
         email: formData.email,
-        nomeUsuario: formData.nomeUsuario,
-        turnoDisponivel: formData.turnoDisponivel,
-        responsavelPor: responsaveis
+        nome_usuario: formData.nome_usuario,
+        senha: formData.senha,
+        turno_disponivel: formData.turno_disponivel,
+        responsavel_por: JSON.stringify(responsaveis),
+        status: 'Ativo'
       }
       
-      const novosVoluntarios = [...voluntarios, novoVoluntario].sort((a, b) => a.nome.localeCompare(b.nome))
-      setVoluntarios(novosVoluntarios)
-      localStorage.setItem('voluntarios', JSON.stringify(novosVoluntarios))
+      await createVoluntario(dadosVoluntario)
+      await carregarVoluntarios()
       
-      alert('Voluntário cadastrado com sucesso!')
+      // Notificar outras páginas que os voluntários foram atualizados
+      window.dispatchEvent(new Event('voluntariosUpdated'))
+      
       setFormData({
         nome: '',
         cpf: '',
         telefone: '',
         email: '',
-        nomeUsuario: '',
+        nome_usuario: '',
         senha: '',
-        turnoDisponivel: '',
-        responsavelPor: {
+        turno_disponivel: '',
+        responsavel_por: {
           beneficiados: false,
           entradaProdutos: false,
           financeiro: false,
@@ -142,80 +127,51 @@ export default function Voluntarios() {
           saidaProdutos: false
         }
       })
-      setErros({})
       setShowForm(false)
+      setShowCreateMessage(true)
+      setTimeout(() => {
+        setShowCreateMessage(false)
+      }, 3000)
     } catch (error) {
       alert('Erro ao cadastrar voluntário')
     }
   }
 
-  const handleEditar = (id) => {
-    const voluntario = voluntarios.find(v => v.id === id)
-    if (voluntario) {
-      const responsavelObj = {
-        beneficiados: voluntario.responsavelPor?.includes('Beneficiados') || false,
-        entradaProdutos: voluntario.responsavelPor?.includes('Entrada de Produtos') || false,
-        financeiro: voluntario.responsavelPor?.includes('Financeiro') || false,
-        patrocinadores: voluntario.responsavelPor?.includes('Patrocinadores') || false,
-        saidaProdutos: voluntario.responsavelPor?.includes('Saída de Produtos') || false
-      }
-      
-      setFormData({
-        nome: voluntario.nome,
-        cpf: voluntario.cpf,
-        telefone: voluntario.telefone,
-        email: voluntario.email,
-        nomeUsuario: voluntario.nomeUsuario,
-        senha: '',
-        turnoDisponivel: voluntario.turnoDisponivel || '',
-        responsavelPor: responsavelObj
-      })
-      setItemEditando(voluntario)
-      setEditando(true)
-    }
-  }
-
-  const handleCancelarEdicao = () => {
-    setEditando(false)
-    setItemEditando(null)
-    setFormData({
-      nome: '',
-      cpf: '',
-      telefone: '',
-      email: '',
-      nomeUsuario: '',
-      senha: '',
-      turnoDisponivel: '',
-      responsavelPor: {
-        beneficiados: false,
-        entradaProdutos: false,
-        financeiro: false,
-        patrocinadores: false,
-        saidaProdutos: false
-      }
-    })
-    setErros({})
-  }
-
-  const handleAlterarInformacoes = async (e) => {
-    e.preventDefault()
-    
-    const novosErros = {}
-    if (!formData.nome) novosErros.nome = 'Preenchimento obrigatório'
-    if (!formData.cpf) novosErros.cpf = 'Preenchimento obrigatório'
-    if (!formData.telefone) novosErros.telefone = 'Preenchimento obrigatório'
-    if (!formData.email) novosErros.email = 'Preenchimento obrigatório'
-    if (!formData.nomeUsuario) novosErros.nomeUsuario = 'Preenchimento obrigatório'
-    
-    setErros(novosErros)
-    
-    if (Object.keys(novosErros).length > 0) {
-      return
-    }
-    
+  const handleEdit = (voluntario) => {
+    let responsavelArray = []
     try {
-      const responsaveis = Object.keys(formData.responsavelPor)
-        .filter(key => formData.responsavelPor[key])
+      responsavelArray = JSON.parse(voluntario.responsavel_por || '[]')
+    } catch (e) {
+      responsavelArray = []
+    }
+    
+    const responsavelObj = {
+      beneficiados: responsavelArray.includes('Beneficiados') || false,
+      entradaProdutos: responsavelArray.includes('Entrada de Produtos') || false,
+      financeiro: responsavelArray.includes('Financeiro') || false,
+      patrocinadores: responsavelArray.includes('Patrocinadores') || false,
+      saidaProdutos: responsavelArray.includes('Saída de Produtos') || false
+    }
+    
+    setEditData({
+      nome: voluntario.nome,
+      cpf: voluntario.cpf,
+      telefone: voluntario.telefone,
+      email: voluntario.email,
+      nomeUsuario: voluntario.nome_usuario,
+      turnoDisponivel: voluntario.turno_disponivel || '',
+      responsavelPor: responsavelObj,
+      status: voluntario.status
+    })
+    setSelectedVoluntario(voluntario)
+    setShowEdit(true)
+  }
+
+  const handleUpdate = async (e) => {
+    e.preventDefault()
+    try {
+      const responsaveis = Object.keys(editData.responsavelPor)
+        .filter(key => editData.responsavelPor[key])
         .map(key => {
           const nomes = {
             beneficiados: 'Beneficiados',
@@ -227,483 +183,771 @@ export default function Voluntarios() {
           return nomes[key]
         })
       
-      const voluntariosAtualizados = voluntarios.map(voluntario => 
-        voluntario.id === itemEditando.id 
-          ? {
-              ...voluntario,
-              nome: formData.nome,
-              cpf: formData.cpf,
-              telefone: formData.telefone,
-              email: formData.email,
-              nomeUsuario: formData.nomeUsuario,
-              turnoDisponivel: formData.turnoDisponivel,
-              responsavelPor: responsaveis
-            }
-          : voluntario
-      ).sort((a, b) => a.nome.localeCompare(b.nome))
-      setVoluntarios(voluntariosAtualizados)
-      localStorage.setItem('voluntarios', JSON.stringify(voluntariosAtualizados))
+      const dadosAtualizados = {
+        nome: editData.nome,
+        cpf: editData.cpf,
+        telefone: editData.telefone,
+        email: editData.email,
+        nome_usuario: editData.nomeUsuario,
+        turno_disponivel: editData.turnoDisponivel,
+        responsavel_por: JSON.stringify(responsaveis),
+        status: editData.status
+      }
       
-      setVoluntarioAtualizado(true)
+      await updateVoluntario(selectedVoluntario.id, dadosAtualizados)
+      await carregarVoluntarios()
+      
+      // Notificar outras páginas que os voluntários foram atualizados
+      window.dispatchEvent(new Event('voluntariosUpdated'))
+      
+      setShowUpdateMessage(true)
       setTimeout(() => {
-        setVoluntarioAtualizado(false)
-        handleCancelarEdicao()
+        setShowUpdateMessage(false)
+        setShowEdit(false)
       }, 2000)
     } catch (error) {
-      alert('Erro ao alterar informações')
+      alert('Erro ao atualizar voluntário')
     }
   }
 
-  const handleExcluir = (id) => {
-    const voluntario = voluntarios.find(v => v.id === id)
-    setItemExcluir(voluntario)
-    setModalExcluir(true)
-  }
-
-  const confirmarExclusao = async () => {
+  const handleDelete = async () => {
     try {
-      const novosVoluntarios = voluntarios.filter(voluntario => voluntario.id !== itemExcluir.id).sort((a, b) => a.nome.localeCompare(b.nome))
-      setVoluntarios(novosVoluntarios)
-      localStorage.setItem('voluntarios', JSON.stringify(novosVoluntarios))
-      setModalExcluir(false)
-      setItemExcluir(null)
-      alert('Voluntário excluído com sucesso!')
+      await deleteVoluntario(selectedVoluntario.id)
+      await carregarVoluntarios()
+      
+      // Notificar outras páginas que os voluntários foram atualizados
+      window.dispatchEvent(new Event('voluntariosUpdated'))
+      setShowDelete(false)
+      setShowDeleteMessage(true)
+      setTimeout(() => {
+        setShowDeleteMessage(false)
+      }, 3000)
     } catch (error) {
       alert('Erro ao excluir voluntário')
     }
   }
 
-  const cancelarExclusao = () => {
-    setModalExcluir(false)
-    setItemExcluir(null)
+  if (loading) {
+    return <div style={{padding: '20px'}}>Carregando...</div>
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem'}}>
-        <h1 className="text-2xl font-bold">
-          {editando ? 'Editar Voluntário' : 'Voluntários'}
-        </h1>
-        {!editando && (
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
-          >
-            {showForm ? 'Cancelar' : 'Novo Voluntário'}
-          </button>
-        )}
+    <div style={{padding: '20px', maxWidth: '1200px', margin: '0 auto'}}>
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+        <h1 style={{fontSize: '24px', fontWeight: 'bold'}}>Voluntários</h1>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          style={{
+            backgroundColor: '#f97316',
+            color: 'white',
+            padding: '10px 20px',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer'
+          }}
+        >
+          {showForm ? 'Cancelar' : 'Novo Voluntário'}
+        </button>
       </div>
-      
+
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow max-w-4xl mb-8 mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Nome</label>
-            <input
-              type="text"
-              value={formData.nome}
-              onChange={(e) => setFormData({...formData, nome: e.target.value})}
-              className={`w-full p-2 border rounded ${erros.nome ? 'border-red-500' : ''}`}
-            />
-            {erros.nome && <div className="text-red-500 text-sm mt-1">{erros.nome}</div>}
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">CPF</label>
-            <input
-              type="text"
-              value={formData.cpf}
-              onChange={handleCPFChange}
-              placeholder="000.000.000-00"
-              className={`w-full p-2 border rounded ${erros.cpf ? 'border-red-500' : ''}`}
-            />
-            {erros.cpf && <div className="text-red-500 text-sm mt-1">{erros.cpf}</div>}
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Telefone</label>
-            <input
-              type="text"
-              value={formData.telefone}
-              onChange={(e) => setFormData({...formData, telefone: e.target.value})}
-              className={`w-full p-2 border rounded ${erros.telefone ? 'border-red-500' : ''}`}
-            />
-            {erros.telefone && <div className="text-red-500 text-sm mt-1">{erros.telefone}</div>}
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">E-mail</label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
-              className={`w-full p-2 border rounded ${erros.email ? 'border-red-500' : ''}`}
-            />
-            {erros.email && <div className="text-red-500 text-sm mt-1">{erros.email}</div>}
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Nome de Usuário</label>
-            <input
-              type="text"
-              value={formData.nomeUsuario}
-              onChange={(e) => setFormData({...formData, nomeUsuario: e.target.value})}
-              className={`w-full p-2 border rounded ${erros.nomeUsuario ? 'border-red-500' : ''}`}
-            />
-            {erros.nomeUsuario && <div className="text-red-500 text-sm mt-1">{erros.nomeUsuario}</div>}
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Senha para o Usuário</label>
-            <input
-              type="password"
-              value={formData.senha}
-              onChange={(e) => setFormData({...formData, senha: e.target.value})}
-              className={`w-full p-2 border rounded ${erros.senha ? 'border-red-500' : ''}`}
-            />
-            {erros.senha && <div className="text-red-500 text-sm mt-1">{erros.senha}</div>}
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Turno Disponível</label>
-            <select
-              value={formData.turnoDisponivel}
-              onChange={(e) => setFormData({...formData, turnoDisponivel: e.target.value})}
-              className="w-full p-2 border rounded"
-            >
-              <option value="">Selecione</option>
-              <option value="Manhã">Manhã</option>
-              <option value="Tarde">Tarde</option>
-              <option value="Noite">Noite</option>
-              <option value="Diurno">Diurno</option>
-              <option value="Noturno">Noturno</option>
-              <option value="Integral">Integral</option>
-            </select>
-          </div>
-
-          <div className="mb-4 md:col-span-2">
-            <label className="block text-sm font-medium mb-2">Responsável por</label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.responsavelPor.beneficiados}
-                  onChange={() => handleResponsavelChange('beneficiados')}
-                  className="mr-2"
-                />
-                Beneficiados
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.responsavelPor.entradaProdutos}
-                  onChange={() => handleResponsavelChange('entradaProdutos')}
-                  className="mr-2"
-                />
-                Entrada de Produtos
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.responsavelPor.financeiro}
-                  onChange={() => handleResponsavelChange('financeiro')}
-                  className="mr-2"
-                />
-                Financeiro
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.responsavelPor.patrocinadores}
-                  onChange={() => handleResponsavelChange('patrocinadores')}
-                  className="mr-2"
-                />
-                Patrocinadores
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.responsavelPor.saidaProdutos}
-                  onChange={() => handleResponsavelChange('saidaProdutos')}
-                  className="mr-2"
-                />
-                Saída de Produtos
-              </label>
+        <form onSubmit={handleSubmit} style={{
+          backgroundColor: 'white',
+          padding: '20px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          marginBottom: '20px'
+        }}>
+          <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '15px'}}>
+            <div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Nome:</label>
+              <input
+                type="text"
+                value={formData.nome}
+                onChange={(e) => setFormData({...formData, nome: e.target.value})}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                required
+              />
+            </div>
+            <div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>CPF:</label>
+              <input
+                type="text"
+                value={formData.cpf}
+                onChange={handleCPFChange}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                maxLength="14"
+                placeholder="000.000.000-00"
+                required
+              />
+            </div>
+            <div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Telefone:</label>
+              <input
+                type="text"
+                value={formData.telefone}
+                onChange={(e) => setFormData({...formData, telefone: e.target.value})}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                maxLength="20"
+                placeholder="(11) 99999-9999"
+                required
+              />
+            </div>
+            <div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Email:</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                required
+              />
+            </div>
+            <div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Nome de Usuário:</label>
+              <input
+                type="text"
+                value={formData.nome_usuario}
+                onChange={(e) => setFormData({...formData, nome_usuario: e.target.value})}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                required
+              />
+            </div>
+            <div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Senha:</label>
+              <input
+                type="password"
+                value={formData.senha}
+                onChange={(e) => setFormData({...formData, senha: e.target.value})}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                required
+              />
+            </div>
+            <div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Turno Disponível:</label>
+              <select
+                value={formData.turno_disponivel}
+                onChange={(e) => setFormData({...formData, turno_disponivel: e.target.value})}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+              >
+                <option value="">Selecione</option>
+                <option value="Manhã">Manhã</option>
+                <option value="Tarde">Tarde</option>
+                <option value="Noite">Noite</option>
+                <option value="Diurno">Diurno</option>
+                <option value="Noturno">Noturno</option>
+                <option value="Integral">Integral</option>
+              </select>
+            </div>
+            <div style={{gridColumn: '1 / -1'}}>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Responsável por:</label>
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px'}}>
+                <label style={{display: 'flex', alignItems: 'center'}}>
+                  <input
+                    type="checkbox"
+                    checked={formData.responsavel_por.beneficiados}
+                    onChange={() => handleResponsavelChange('beneficiados')}
+                    style={{marginRight: '8px'}}
+                  />
+                  Beneficiados
+                </label>
+                <label style={{display: 'flex', alignItems: 'center'}}>
+                  <input
+                    type="checkbox"
+                    checked={formData.responsavel_por.entradaProdutos}
+                    onChange={() => handleResponsavelChange('entradaProdutos')}
+                    style={{marginRight: '8px'}}
+                  />
+                  Entrada de Produtos
+                </label>
+                <label style={{display: 'flex', alignItems: 'center'}}>
+                  <input
+                    type="checkbox"
+                    checked={formData.responsavel_por.financeiro}
+                    onChange={() => handleResponsavelChange('financeiro')}
+                    style={{marginRight: '8px'}}
+                  />
+                  Financeiro
+                </label>
+                <label style={{display: 'flex', alignItems: 'center'}}>
+                  <input
+                    type="checkbox"
+                    checked={formData.responsavel_por.patrocinadores}
+                    onChange={() => handleResponsavelChange('patrocinadores')}
+                    style={{marginRight: '8px'}}
+                  />
+                  Patrocinadores
+                </label>
+                <label style={{display: 'flex', alignItems: 'center'}}>
+                  <input
+                    type="checkbox"
+                    checked={formData.responsavel_por.saidaProdutos}
+                    onChange={() => handleResponsavelChange('saidaProdutos')}
+                    style={{marginRight: '8px'}}
+                  />
+                  Saída de Produtos
+                </label>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className="mt-6 text-center">
           <button
             type="submit"
-            className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600"
+            style={{
+              backgroundColor: '#10b981',
+              color: 'white',
+              padding: '10px 20px',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              marginTop: '15px'
+            }}
           >
-            Cadastrar Voluntário
+            Cadastrar
           </button>
-        </div>
         </form>
       )}
 
-      {editando && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-4xl w-full mx-4 max-h-screen overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Editar Voluntário</h2>
-            
-            <form className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Nome</label>
-                <input
-                  type="text"
-                  value={formData.nome}
-                  onChange={(e) => setFormData({...formData, nome: e.target.value})}
-                  className={`w-full p-2 border rounded ${erros.nome ? 'border-red-500' : ''}`}
-                />
-                {erros.nome && <div className="text-red-500 text-sm mt-1">{erros.nome}</div>}
-              </div>
+      <div style={{backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'}}>
+        <table style={{width: '100%', borderCollapse: 'collapse'}}>
+          <thead>
+            <tr style={{backgroundColor: '#f9fafb'}}>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>ID</th>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Nome</th>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>CPF</th>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Telefone</th>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Email</th>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Status</th>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {voluntarios.map((voluntario) => (
+              <tr key={voluntario.id}>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{voluntario.id}</td>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{voluntario.nome}</td>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{voluntario.cpf}</td>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{voluntario.telefone}</td>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}} title={voluntario.email}>{voluntario.email}</td>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>
+                  <span style={{
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    backgroundColor: voluntario.status === 'Ativo' ? '#dcfce7' : '#fee2e2',
+                    color: voluntario.status === 'Ativo' ? '#166534' : '#991b1b'
+                  }}>
+                    {voluntario.status}
+                  </span>
+                </td>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>
+                  <div style={{display: 'flex', gap: '5px', flexWrap: 'wrap'}}>
+                    <button
+                      onClick={() => {
+                        setSelectedVoluntario(voluntario)
+                        setShowDetails(true)
+                      }}
+                      style={{
+                        backgroundColor: '#10b981',
+                        color: 'white',
+                        padding: '4px 8px',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      Detalhes
+                    </button>
+                    <button
+                      onClick={() => handleEdit(voluntario)}
+                      style={{
+                        backgroundColor: '#6b7280',
+                        color: 'white',
+                        padding: '4px 8px',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedVoluntario(voluntario)
+                        setShowDelete(true)
+                      }}
+                      style={{
+                        backgroundColor: '#ef4444',
+                        color: 'white',
+                        padding: '4px 8px',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      Excluir
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">CPF</label>
-                <input
-                  type="text"
-                  value={formData.cpf}
-                  onChange={handleCPFChange}
-                  placeholder="000.000.000-00"
-                  className={`w-full p-2 border rounded ${erros.cpf ? 'border-red-500' : ''}`}
-                />
-                {erros.cpf && <div className="text-red-500 text-sm mt-1">{erros.cpf}</div>}
-              </div>
+      {voluntarios.length === 0 && (
+        <p style={{textAlign: 'center', marginTop: '20px', color: '#666'}}>
+          Nenhum voluntário cadastrado.
+        </p>
+      )}
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Telefone</label>
-                <input
-                  type="text"
-                  value={formData.telefone}
-                  onChange={(e) => setFormData({...formData, telefone: e.target.value})}
-                  className={`w-full p-2 border rounded ${erros.telefone ? 'border-red-500' : ''}`}
-                />
-                {erros.telefone && <div className="text-red-500 text-sm mt-1">{erros.telefone}</div>}
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">E-mail</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className={`w-full p-2 border rounded ${erros.email ? 'border-red-500' : ''}`}
-                />
-                {erros.email && <div className="text-red-500 text-sm mt-1">{erros.email}</div>}
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Nome de Usuário</label>
-                <input
-                  type="text"
-                  value={formData.nomeUsuario}
-                  onChange={(e) => setFormData({...formData, nomeUsuario: e.target.value})}
-                  className={`w-full p-2 border rounded ${erros.nomeUsuario ? 'border-red-500' : ''}`}
-                />
-                {erros.nomeUsuario && <div className="text-red-500 text-sm mt-1">{erros.nomeUsuario}</div>}
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Nova Senha (deixe em branco para manter)</label>
-                <input
-                  type="password"
-                  value={formData.senha}
-                  onChange={(e) => setFormData({...formData, senha: e.target.value})}
-                  className="w-full p-2 border rounded"
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Turno Disponível</label>
-                <select
-                  value={formData.turnoDisponivel}
-                  onChange={(e) => setFormData({...formData, turnoDisponivel: e.target.value})}
-                  className="w-full p-2 border rounded"
-                >
-                  <option value="">Selecione</option>
-                  <option value="Manhã">Manhã</option>
-                  <option value="Tarde">Tarde</option>
-                  <option value="Noite">Noite</option>
-                  <option value="Diurno">Diurno</option>
-                  <option value="Noturno">Noturno</option>
-                  <option value="Integral">Integral</option>
-                </select>
-              </div>
-
-              <div className="mb-4 md:col-span-2">
-                <label className="block text-sm font-medium mb-2">Responsável por</label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData.responsavelPor.beneficiados}
-                      onChange={() => handleResponsavelChange('beneficiados')}
-                      className="mr-2"
-                    />
-                    Beneficiados
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData.responsavelPor.entradaProdutos}
-                      onChange={() => handleResponsavelChange('entradaProdutos')}
-                      className="mr-2"
-                    />
-                    Entrada de Produtos
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData.responsavelPor.financeiro}
-                      onChange={() => handleResponsavelChange('financeiro')}
-                      className="mr-2"
-                    />
-                    Financeiro
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData.responsavelPor.patrocinadores}
-                      onChange={() => handleResponsavelChange('patrocinadores')}
-                      className="mr-2"
-                    />
-                    Patrocinadores
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData.responsavelPor.saidaProdutos}
-                      onChange={() => handleResponsavelChange('saidaProdutos')}
-                      className="mr-2"
-                    />
-                    Saída de Produtos
-                  </label>
+      {/* Modal de Detalhes */}
+      {showDetails && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '20px',
+            borderRadius: '8px',
+            maxWidth: '600px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <h2 style={{marginBottom: '20px'}}>Detalhes do Voluntário</h2>
+            {selectedVoluntario && (
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px'}}>
+                <div><strong>Nome:</strong> {selectedVoluntario.nome}</div>
+                <div><strong>CPF:</strong> {selectedVoluntario.cpf}</div>
+                <div><strong>Telefone:</strong> {selectedVoluntario.telefone}</div>
+                <div><strong>Email:</strong> {selectedVoluntario.email}</div>
+                <div><strong>Usuário:</strong> {selectedVoluntario.nome_usuario}</div>
+                <div><strong>Turno:</strong> {selectedVoluntario.turno_disponivel}</div>
+                <div><strong>Status:</strong> {selectedVoluntario.status}</div>
+                <div style={{gridColumn: '1 / -1'}}>
+                  <strong>Responsável por:</strong> {(() => {
+                    try {
+                      const areas = JSON.parse(selectedVoluntario.responsavel_por || '[]')
+                      return areas.join(', ') || 'Nenhuma área'
+                    } catch (e) {
+                      return 'Nenhuma área'
+                    }
+                  })()}
                 </div>
               </div>
-            </form>
-
-            <div className="mt-6 text-center">
-              <div className="space-x-4">
-                <button
-                  type="button"
-                  onClick={handleAlterarInformacoes}
-                  className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600"
-                >
-                  Alterar Informações
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCancelarEdicao}
-                  className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600"
-                >
-                  Cancelar
-                </button>
-              </div>
-              {voluntarioAtualizado && (
-                <div className="mt-4 text-green-600 font-medium">
-                  Voluntário Atualizado
-                </div>
-              )}
+            )}
+            <div style={{marginTop: '20px', textAlign: 'center'}}>
+              <button
+                onClick={() => setShowDetails(false)}
+                style={{
+                  backgroundColor: '#6b7280',
+                  color: 'white',
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
+              >
+                Fechar
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      <div className="mt-8">
-        <h2 className="text-xl font-bold mb-4">Voluntários Cadastrados</h2>
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Cód.</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Nome</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">CPF</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Telefone</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">E-mail</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Turno</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Responsável por</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {voluntarios
-                .slice((paginaAtual - 1) * itensPorPagina, paginaAtual * itensPorPagina)
-                .map((voluntario) => (
-                <tr key={voluntario.id}>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{voluntario.cod_voluntario}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{voluntario.nome}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{voluntario.cpf}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{voluntario.telefone}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{voluntario.email}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{voluntario.turnoDisponivel || 'N/A'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {voluntario.responsavelPor?.join(', ') || 'N/A'}
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <button
-                      onClick={() => handleEditar(voluntario.id)}
-                      className="text-blue-600 hover:text-blue-800 mr-3"
-                    >
-                      ✏️ Editar
-                    </button>
-                    <button
-                      onClick={() => handleExcluir(voluntario.id)}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      🗑️ Excluir
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-        {voluntarios.length > itensPorPagina && (
-          <div className="mt-4 flex justify-center">
-            <div className="flex space-x-2">
-              {Array.from({ length: Math.ceil(voluntarios.length / itensPorPagina) }, (_, i) => (
+      {/* Modal de Edição */}
+      {showEdit && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '20px',
+            borderRadius: '8px',
+            maxWidth: '800px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <h2 style={{marginBottom: '20px'}}>Editar Voluntário</h2>
+            <form onSubmit={handleUpdate}>
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '15px'}}>
+                <div>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Nome:</label>
+                  <input
+                    type="text"
+                    value={editData.nome}
+                    onChange={(e) => setEditData({...editData, nome: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>CPF:</label>
+                  <input
+                    type="text"
+                    value={editData.cpf}
+                    onChange={(e) => setEditData({...editData, cpf: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    maxLength="14"
+                    placeholder="000.000.000-00"
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Telefone:</label>
+                  <input
+                    type="text"
+                    value={editData.telefone}
+                    onChange={(e) => setEditData({...editData, telefone: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    maxLength="20"
+                    placeholder="(11) 99999-9999"
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Email:</label>
+                  <input
+                    type="email"
+                    value={editData.email}
+                    onChange={(e) => setEditData({...editData, email: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Nome de Usuário:</label>
+                  <input
+                    type="text"
+                    value={editData.nomeUsuario}
+                    onChange={(e) => setEditData({...editData, nomeUsuario: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Turno Disponível:</label>
+                  <select
+                    value={editData.turnoDisponivel}
+                    onChange={(e) => setEditData({...editData, turnoDisponivel: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                  >
+                    <option value="">Selecione</option>
+                    <option value="Manhã">Manhã</option>
+                    <option value="Tarde">Tarde</option>
+                    <option value="Noite">Noite</option>
+                    <option value="Diurno">Diurno</option>
+                    <option value="Noturno">Noturno</option>
+                    <option value="Integral">Integral</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Status:</label>
+                  <select
+                    value={editData.status}
+                    onChange={(e) => setEditData({...editData, status: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    required
+                  >
+                    <option value="Ativo">Ativo</option>
+                    <option value="Inativo">Inativo</option>
+                  </select>
+                </div>
+                <div style={{gridColumn: '1 / -1'}}>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Responsável por:</label>
+                  <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px'}}>
+                    <label style={{display: 'flex', alignItems: 'center'}}>
+                      <input
+                        type="checkbox"
+                        checked={editData.responsavelPor?.beneficiados || false}
+                        onChange={() => setEditData({
+                          ...editData,
+                          responsavelPor: {
+                            ...editData.responsavelPor,
+                            beneficiados: !editData.responsavelPor?.beneficiados
+                          }
+                        })}
+                        style={{marginRight: '8px'}}
+                      />
+                      Beneficiados
+                    </label>
+                    <label style={{display: 'flex', alignItems: 'center'}}>
+                      <input
+                        type="checkbox"
+                        checked={editData.responsavelPor?.entradaProdutos || false}
+                        onChange={() => setEditData({
+                          ...editData,
+                          responsavelPor: {
+                            ...editData.responsavelPor,
+                            entradaProdutos: !editData.responsavelPor?.entradaProdutos
+                          }
+                        })}
+                        style={{marginRight: '8px'}}
+                      />
+                      Entrada de Produtos
+                    </label>
+                    <label style={{display: 'flex', alignItems: 'center'}}>
+                      <input
+                        type="checkbox"
+                        checked={editData.responsavelPor?.financeiro || false}
+                        onChange={() => setEditData({
+                          ...editData,
+                          responsavelPor: {
+                            ...editData.responsavelPor,
+                            financeiro: !editData.responsavelPor?.financeiro
+                          }
+                        })}
+                        style={{marginRight: '8px'}}
+                      />
+                      Financeiro
+                    </label>
+                    <label style={{display: 'flex', alignItems: 'center'}}>
+                      <input
+                        type="checkbox"
+                        checked={editData.responsavelPor?.patrocinadores || false}
+                        onChange={() => setEditData({
+                          ...editData,
+                          responsavelPor: {
+                            ...editData.responsavelPor,
+                            patrocinadores: !editData.responsavelPor?.patrocinadores
+                          }
+                        })}
+                        style={{marginRight: '8px'}}
+                      />
+                      Patrocinadores
+                    </label>
+                    <label style={{display: 'flex', alignItems: 'center'}}>
+                      <input
+                        type="checkbox"
+                        checked={editData.responsavelPor?.saidaProdutos || false}
+                        onChange={() => setEditData({
+                          ...editData,
+                          responsavelPor: {
+                            ...editData.responsavelPor,
+                            saidaProdutos: !editData.responsavelPor?.saidaProdutos
+                          }
+                        })}
+                        style={{marginRight: '8px'}}
+                      />
+                      Saída de Produtos
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div style={{marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'flex-end'}}>
                 <button
-                  key={i + 1}
-                  onClick={() => setPaginaAtual(i + 1)}
-                  className={`px-3 py-1 rounded ${
-                    paginaAtual === i + 1
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
+                  type="button"
+                  onClick={() => setShowEdit(false)}
+                  style={{
+                    backgroundColor: '#6b7280',
+                    color: 'white',
+                    padding: '10px 20px',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer'
+                  }}
                 >
-                  {i + 1}
+                  Cancelar
                 </button>
-              ))}
-            </div>
+                <button
+                  type="submit"
+                  style={{
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    padding: '10px 20px',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Salvar
+                </button>
+              </div>
+              {showUpdateMessage && (
+                <div style={{
+                  marginTop: '15px',
+                  textAlign: 'center',
+                  color: '#10b981',
+                  fontWeight: '500',
+                  fontSize: '16px'
+                }}>
+                  Voluntário Atualizado
+                </div>
+              )}
+            </form>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {modalExcluir && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-bold mb-4 text-center">Confirmar Exclusão?</h3>
-            <p className="text-gray-600 mb-6 text-center">
-              Deseja realmente excluir o voluntário <strong>{itemExcluir?.nome}</strong>?
+      {/* Modal de Exclusão */}
+      {showDelete && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '8px',
+            maxWidth: '400px',
+            width: '90%'
+          }}>
+            <h3 style={{marginBottom: '15px', textAlign: 'center'}}>Confirmar Exclusão</h3>
+            <p style={{marginBottom: '20px', textAlign: 'center'}}>
+              Tem certeza que deseja excluir o voluntário <strong>{selectedVoluntario?.nome}</strong>?
             </p>
-            <div className="flex justify-center space-x-4">
+            <div style={{display: 'flex', gap: '10px', justifyContent: 'center'}}>
               <button
-                onClick={confirmarExclusao}
-                className="bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600"
-              >
-                Confirmar
-              </button>
-              <button
-                onClick={cancelarExclusao}
-                className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600"
+                onClick={() => setShowDelete(false)}
+                style={{
+                  backgroundColor: '#6b7280',
+                  color: 'white',
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
               >
                 Cancelar
               </button>
+              <button
+                onClick={handleDelete}
+                style={{
+                  backgroundColor: '#ef4444',
+                  color: 'white',
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
+              >
+                Excluir
+              </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação de Cadastro */}
+      {showCreateMessage && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '8px',
+            maxWidth: '400px',
+            width: '90%',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              fontSize: '48px',
+              color: '#10b981',
+              marginBottom: '15px'
+            }}>
+              ✓
+            </div>
+            <h3 style={{
+              marginBottom: '10px',
+              color: '#10b981',
+              fontSize: '18px'
+            }}>
+              Sucesso!
+            </h3>
+            <p style={{
+              margin: 0,
+              color: '#666',
+              fontSize: '16px'
+            }}>
+              Voluntário cadastrado com sucesso!
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação de Exclusão */}
+      {showDeleteMessage && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '8px',
+            maxWidth: '400px',
+            width: '90%',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              fontSize: '48px',
+              color: '#ef4444',
+              marginBottom: '15px'
+            }}>
+              ✓
+            </div>
+            <h3 style={{
+              marginBottom: '10px',
+              color: '#ef4444',
+              fontSize: '18px'
+            }}>
+              Excluído!
+            </h3>
+            <p style={{
+              margin: 0,
+              color: '#666',
+              fontSize: '16px'
+            }}>
+              Voluntário excluído com sucesso!
+            </p>
           </div>
         </div>
       )}

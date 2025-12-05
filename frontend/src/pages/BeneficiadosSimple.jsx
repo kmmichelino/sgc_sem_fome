@@ -1,109 +1,65 @@
 import { useState, useEffect } from 'react'
-import { getPatrocinadores, criarPatrocinador, atualizarPatrocinador, excluirPatrocinador } from '../services/api'
+import { getBeneficiados, createBeneficiado, updateBeneficiado, deleteBeneficiado } from '../services/api'
 
-export default function CadastroPatrocinadores() {
-  const [patrocinadores, setPatrocinadores] = useState([])
-  const [paginaAtual, setPaginaAtual] = useState(1)
-  const itensPorPagina = 15
+export default function BeneficiadosSimple() {
+  const [beneficiados, setBeneficiados] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
-  const [selectedPatrocinador, setSelectedPatrocinador] = useState(null)
+  const [selectedBeneficiado, setSelectedBeneficiado] = useState(null)
   const [editData, setEditData] = useState({})
   const [showUpdateMessage, setShowUpdateMessage] = useState(false)
   const [showCreateMessage, setShowCreateMessage] = useState(false)
   const [showDeleteMessage, setShowDeleteMessage] = useState(false)
   const [formData, setFormData] = useState({
     nome: '',
-    tipoDocumento: 'CPF',
-    documento: '',
-    rg: '',
-    dataNascimento: '',
-    ie: '',
-    celular: '',
-    email: '',
-    statusFiliacao: 'Ativa',
-    dataFiliacao: ''
+    cpf: '',
+    telefone: '',
+    endereco: '',
+    numero_membros: '1',
+    renda_familiar: '',
+    observacoes: ''
   })
 
   useEffect(() => {
-    carregarPatrocinadores()
+    carregarBeneficiados()
   }, [])
 
-  const carregarPatrocinadores = async () => {
+  const carregarBeneficiados = async () => {
     try {
-      const data = await getPatrocinadores()
-      setPatrocinadores(data.sort((a, b) => a.nome.localeCompare(b.nome)))
+      const data = await getBeneficiados()
+      setBeneficiados(data)
     } catch (error) {
-      console.error('Erro ao carregar patrocinadores:', error)
+      console.error('Erro ao carregar beneficiados:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const formatarDocumento = (valor, tipo) => {
-    const numeros = valor.replace(/\D/g, '')
-    if (tipo === 'CPF') {
-      return numeros.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-    } else {
-      return numeros.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
-    }
-  }
-
-  const handleDocumentoChange = (e) => {
-    const valor = e.target.value
-    const numerosSomente = valor.replace(/\D/g, '')
-    const maxLength = formData.tipoDocumento === 'CPF' ? 11 : 14
-    
-    if (numerosSomente.length <= maxLength) {
-      const documentoFormatado = formatarDocumento(numerosSomente, formData.tipoDocumento)
-      setFormData({...formData, documento: documentoFormatado})
-    }
-  }
-
-  const handleTipoDocumentoChange = (e) => {
-    setFormData({
-      ...formData, 
-      tipoDocumento: e.target.value, 
-      documento: '',
-      rg: '',
-      dataNascimento: '',
-      ie: ''
-    })
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      const dadosPatrocinador = {
+      await createBeneficiado({
         nome: formData.nome,
-        tipoDocumento: formData.tipoDocumento,
-        documento: formData.documento,
-        rg: formData.rg,
-        ie: formData.ie,
-        dataNascimento: formData.dataNascimento,
-        telefone: formData.celular,
-        email: formData.email,
-        statusFiliacao: formData.statusFiliacao,
-        dataFiliacao: formData.dataFiliacao
-      }
-      
-      await criarPatrocinador(dadosPatrocinador)
-      await carregarPatrocinadores()
-      
+        cpf: formData.cpf,
+        telefone: formData.telefone,
+        endereco: formData.endereco,
+        numero_membros: parseInt(formData.numero_membros) || 1,
+        renda_familiar: formData.renda_familiar ? parseFloat(formData.renda_familiar) : null,
+        observacoes: formData.observacoes || null,
+        status: 'Ativo'
+      })
+      await carregarBeneficiados()
       setFormData({
         nome: '',
-        tipoDocumento: 'CPF',
-        documento: '',
-        rg: '',
-        dataNascimento: '',
-        ie: '',
-        celular: '',
-        email: '',
-        statusFiliacao: 'Ativa',
-        dataFiliacao: ''
+        cpf: '',
+        telefone: '',
+        endereco: '',
+        numero_membros: '1',
+        renda_familiar: '',
+        observacoes: ''
       })
       setShowForm(false)
       setShowCreateMessage(true)
@@ -111,68 +67,60 @@ export default function CadastroPatrocinadores() {
         setShowCreateMessage(false)
       }, 3000)
     } catch (error) {
-      alert('Erro ao cadastrar patrocinador')
+      alert('Erro ao cadastrar beneficiado')
     }
   }
 
-  const handleEdit = (patrocinador) => {
-    const tipoDoc = patrocinador.documento.includes('/') ? 'CNPJ' : 'CPF'
+  const handleEdit = (beneficiado) => {
     setEditData({
-      nome: patrocinador.nome,
-      tipoDocumento: tipoDoc,
-      documento: patrocinador.documento,
-      rg: patrocinador.rg || '',
-      dataNascimento: patrocinador.data_nascimento || '',
-      ie: patrocinador.ie || '',
-      celular: patrocinador.telefone,
-      email: patrocinador.email,
-      statusFiliacao: patrocinador.status_filiacao,
-      dataFiliacao: patrocinador.data_filiacao || ''
+      nome: beneficiado.nome,
+      cpf: beneficiado.cpf,
+      telefone: beneficiado.telefone,
+      endereco: beneficiado.endereco,
+      numero_membros: beneficiado.numero_membros.toString(),
+      renda_familiar: beneficiado.renda_familiar ? beneficiado.renda_familiar.toString() : '',
+      observacoes: beneficiado.observacoes || '',
+      status: beneficiado.status
     })
-    setSelectedPatrocinador(patrocinador)
+    setSelectedBeneficiado(beneficiado)
     setShowEdit(true)
   }
 
   const handleUpdate = async (e) => {
     e.preventDefault()
     try {
-      const dadosPatrocinador = {
+      await updateBeneficiado(selectedBeneficiado.id, {
         nome: editData.nome,
-        tipoDocumento: editData.tipoDocumento,
-        documento: editData.documento,
-        rg: editData.rg,
-        ie: editData.ie,
-        dataNascimento: editData.dataNascimento,
-        telefone: editData.celular,
-        email: editData.email,
-        statusFiliacao: editData.statusFiliacao,
-        dataFiliacao: editData.dataFiliacao
-      }
-      
-      await atualizarPatrocinador(selectedPatrocinador.id, dadosPatrocinador)
-      await carregarPatrocinadores()
-      
+        cpf: editData.cpf,
+        telefone: editData.telefone,
+        endereco: editData.endereco,
+        numero_membros: parseInt(editData.numero_membros) || 1,
+        renda_familiar: editData.renda_familiar ? parseFloat(editData.renda_familiar) : null,
+        observacoes: editData.observacoes || null,
+        status: editData.status
+      })
+      await carregarBeneficiados()
       setShowUpdateMessage(true)
       setTimeout(() => {
         setShowUpdateMessage(false)
         setShowEdit(false)
       }, 2000)
     } catch (error) {
-      alert('Erro ao alterar informações')
+      alert('Erro ao atualizar beneficiado')
     }
   }
 
   const handleDelete = async () => {
     try {
-      await excluirPatrocinador(selectedPatrocinador.id)
-      await carregarPatrocinadores()
+      await deleteBeneficiado(selectedBeneficiado.id)
+      await carregarBeneficiados()
       setShowDelete(false)
       setShowDeleteMessage(true)
       setTimeout(() => {
         setShowDeleteMessage(false)
       }, 3000)
     } catch (error) {
-      alert('Erro ao excluir patrocinador')
+      alert('Erro ao excluir beneficiado')
     }
   }
 
@@ -183,11 +131,11 @@ export default function CadastroPatrocinadores() {
   return (
     <div style={{padding: '20px', maxWidth: '1200px', margin: '0 auto'}}>
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
-        <h1 style={{fontSize: '24px', fontWeight: 'bold'}}>Patrocinadores</h1>
+        <h1 style={{fontSize: '24px', fontWeight: 'bold'}}>Beneficiados</h1>
         <button
           onClick={() => setShowForm(!showForm)}
           style={{
-            backgroundColor: '#3b82f6',
+            backgroundColor: '#f97316',
             color: 'white',
             padding: '10px 20px',
             border: 'none',
@@ -195,7 +143,7 @@ export default function CadastroPatrocinadores() {
             cursor: 'pointer'
           }}
         >
-          {showForm ? 'Cancelar' : 'Novo Patrocinador'}
+          {showForm ? 'Cancelar' : 'Novo Beneficiado'}
         </button>
       </div>
 
@@ -219,101 +167,67 @@ export default function CadastroPatrocinadores() {
               />
             </div>
             <div>
-              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Documento:</label>
-              <div style={{display: 'flex', gap: '8px'}}>
-                <select
-                  value={formData.tipoDocumento}
-                  onChange={handleTipoDocumentoChange}
-                  style={{padding: '8px', border: '1px solid #ccc', borderRadius: '4px', width: '80px'}}
-                >
-                  <option value="CPF">CPF</option>
-                  <option value="CNPJ">CNPJ</option>
-                </select>
-                <input
-                  type="text"
-                  value={formData.documento}
-                  onChange={handleDocumentoChange}
-                  placeholder={formData.tipoDocumento === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00'}
-                  style={{flex: 1, padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
-                  required
-                />
-              </div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>CPF:</label>
+              <input
+                type="text"
+                value={formData.cpf}
+                onChange={(e) => setFormData({...formData, cpf: e.target.value})}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                maxLength="14"
+                placeholder="000.000.000-00"
+                required
+              />
             </div>
-            {formData.tipoDocumento === 'CPF' && (
-              <>
-                <div>
-                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>RG:</label>
-                  <input
-                    type="text"
-                    value={formData.rg}
-                    onChange={(e) => setFormData({...formData, rg: e.target.value})}
-                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
-                    required
-                  />
-                </div>
-                <div>
-                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Data de Nascimento:</label>
-                  <input
-                    type="date"
-                    value={formData.dataNascimento}
-                    onChange={(e) => setFormData({...formData, dataNascimento: e.target.value})}
-                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
-                    required
-                  />
-                </div>
-              </>
-            )}
-            {formData.tipoDocumento === 'CNPJ' && (
-              <div>
-                <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>IE:</label>
-                <input
-                  type="text"
-                  value={formData.ie}
-                  onChange={(e) => setFormData({...formData, ie: e.target.value.replace(/\D/g, '')})}
-                  style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
-                  required
-                />
-              </div>
-            )}
             <div>
               <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Telefone:</label>
               <input
                 type="text"
-                value={formData.celular}
-                onChange={(e) => setFormData({...formData, celular: e.target.value})}
+                value={formData.telefone}
+                onChange={(e) => setFormData({...formData, telefone: e.target.value})}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                maxLength="20"
+                placeholder="(11) 99999-9999"
+                required
+              />
+            </div>
+            <div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Endereço:</label>
+              <input
+                type="text"
+                value={formData.endereco}
+                onChange={(e) => setFormData({...formData, endereco: e.target.value})}
                 style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
                 required
               />
             </div>
             <div>
-              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>E-mail:</label>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Membros da Família:</label>
               <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                type="number"
+                value={formData.numero_membros}
+                onChange={(e) => setFormData({...formData, numero_membros: e.target.value})}
                 style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                min="1"
                 required
               />
             </div>
             <div>
-              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Status Filiação:</label>
-              <select
-                value={formData.statusFiliacao}
-                onChange={(e) => setFormData({...formData, statusFiliacao: e.target.value})}
-                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
-              >
-                <option value="Ativa">Ativa</option>
-                <option value="Inativa">Inativa</option>
-              </select>
-            </div>
-            <div>
-              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Data da Filiação:</label>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Renda Familiar:</label>
               <input
-                type="date"
-                value={formData.dataFiliacao}
-                onChange={(e) => setFormData({...formData, dataFiliacao: e.target.value})}
+                type="number"
+                step="0.01"
+                value={formData.renda_familiar}
+                onChange={(e) => setFormData({...formData, renda_familiar: e.target.value})}
                 style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
-                required
+              />
+            </div>
+            <div style={{gridColumn: '1 / -1'}}>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Observações:</label>
+              <textarea
+                value={formData.observacoes}
+                onChange={(e) => setFormData({...formData, observacoes: e.target.value})}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minHeight: '80px'}}
+                placeholder="Observações adicionais sobre o beneficiado..."
               />
             </div>
           </div>
@@ -340,43 +254,45 @@ export default function CadastroPatrocinadores() {
             <tr style={{backgroundColor: '#f9fafb'}}>
               <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>ID</th>
               <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Nome</th>
-              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Documento</th>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>CPF</th>
               <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Telefone</th>
-              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>E-mail</th>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Endereço</th>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Membros</th>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Renda</th>
               <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Status</th>
               <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Ações</th>
             </tr>
           </thead>
           <tbody>
-            {patrocinadores
-              .slice((paginaAtual - 1) * itensPorPagina, paginaAtual * itensPorPagina)
-              .map((patrocinador) => (
-              <tr key={patrocinador.id}>
-                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{patrocinador.id}</td>
-                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{patrocinador.nome}</td>
-                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{patrocinador.documento}</td>
-                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{patrocinador.telefone}</td>
-                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}} title={patrocinador.email}>{patrocinador.email}</td>
+            {beneficiados.map((beneficiado) => (
+              <tr key={beneficiado.id}>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{beneficiado.id}</td>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{beneficiado.nome}</td>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{beneficiado.cpf}</td>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{beneficiado.telefone}</td>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}} title={beneficiado.endereco}>{beneficiado.endereco}</td>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{beneficiado.numero_membros}</td>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>R$ {beneficiado.renda_familiar ? parseFloat(beneficiado.renda_familiar).toFixed(2) : '0,00'}</td>
                 <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>
                   <span style={{
                     padding: '4px 8px',
                     borderRadius: '4px',
                     fontSize: '12px',
-                    backgroundColor: patrocinador.status_filiacao === 'Ativa' ? '#dcfce7' : '#fee2e2',
-                    color: patrocinador.status_filiacao === 'Ativa' ? '#166534' : '#991b1b'
+                    backgroundColor: beneficiado.status === 'Ativo' ? '#dcfce7' : '#fee2e2',
+                    color: beneficiado.status === 'Ativo' ? '#166534' : '#991b1b'
                   }}>
-                    {patrocinador.status_filiacao}
+                    {beneficiado.status}
                   </span>
                 </td>
                 <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>
                   <div style={{display: 'flex', gap: '5px', flexWrap: 'wrap'}}>
                     <button
                       onClick={() => {
-                        setSelectedPatrocinador(patrocinador)
+                        setSelectedBeneficiado(beneficiado)
                         setShowDetails(true)
                       }}
                       style={{
-                        backgroundColor: '#6366f1',
+                        backgroundColor: '#f97316',
                         color: 'white',
                         padding: '4px 8px',
                         border: 'none',
@@ -388,7 +304,7 @@ export default function CadastroPatrocinadores() {
                       Detalhes
                     </button>
                     <button
-                      onClick={() => handleEdit(patrocinador)}
+                      onClick={() => handleEdit(beneficiado)}
                       style={{
                         backgroundColor: '#f59e0b',
                         color: 'white',
@@ -403,7 +319,7 @@ export default function CadastroPatrocinadores() {
                     </button>
                     <button
                       onClick={() => {
-                        setSelectedPatrocinador(patrocinador)
+                        setSelectedBeneficiado(beneficiado)
                         setShowDelete(true)
                       }}
                       style={{
@@ -426,89 +342,10 @@ export default function CadastroPatrocinadores() {
         </table>
       </div>
 
-      {patrocinadores.length > itensPorPagina && (
-        <div style={{marginTop: '20px', display: 'flex', justifyContent: 'center'}}>
-          <div style={{display: 'flex', gap: '5px'}}>
-            {Array.from({ length: Math.ceil(patrocinadores.length / itensPorPagina) }, (_, i) => (
-              <button
-                key={i + 1}
-                onClick={() => setPaginaAtual(i + 1)}
-                style={{
-                  padding: '8px 12px',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  backgroundColor: paginaAtual === i + 1 ? '#3b82f6' : '#e5e7eb',
-                  color: paginaAtual === i + 1 ? 'white' : '#374151'
-                }}
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {patrocinadores.length === 0 && (
+      {beneficiados.length === 0 && (
         <p style={{textAlign: 'center', marginTop: '20px', color: '#666'}}>
-          Nenhum patrocinador cadastrado.
+          Nenhum beneficiado cadastrado.
         </p>
-      )}
-
-      {/* Modal de Detalhes */}
-      {showDetails && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            padding: '20px',
-            borderRadius: '8px',
-            maxWidth: '600px',
-            width: '90%',
-            maxHeight: '80vh',
-            overflow: 'auto'
-          }}>
-            <h2 style={{marginBottom: '20px'}}>Detalhes do Patrocinador</h2>
-            {selectedPatrocinador && (
-              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px'}}>
-                <div><strong>Nome:</strong> {selectedPatrocinador.nome}</div>
-                <div><strong>Documento:</strong> {selectedPatrocinador.documento}</div>
-                <div><strong>Telefone:</strong> {selectedPatrocinador.telefone}</div>
-                <div><strong>E-mail:</strong> {selectedPatrocinador.email}</div>
-                <div><strong>Status:</strong> {selectedPatrocinador.status_filiacao}</div>
-                <div><strong>Data Filiação:</strong> {selectedPatrocinador.data_filiacao}</div>
-                {selectedPatrocinador.rg && <div><strong>RG:</strong> {selectedPatrocinador.rg}</div>}
-                {selectedPatrocinador.ie && <div><strong>IE:</strong> {selectedPatrocinador.ie}</div>}
-                {selectedPatrocinador.data_nascimento && <div><strong>Data Nascimento:</strong> {selectedPatrocinador.data_nascimento}</div>}
-              </div>
-            )}
-            <div style={{marginTop: '20px', textAlign: 'center'}}>
-              <button
-                onClick={() => setShowDetails(false)}
-                style={{
-                  backgroundColor: '#6b7280',
-                  color: 'white',
-                  padding: '10px 20px',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer'
-                }}
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Modal de Edição */}
@@ -534,7 +371,7 @@ export default function CadastroPatrocinadores() {
             maxHeight: '80vh',
             overflow: 'auto'
           }}>
-            <h2 style={{marginBottom: '20px'}}>Editar Patrocinador</h2>
+            <h2 style={{marginBottom: '20px'}}>Editar Beneficiado</h2>
             <form onSubmit={handleUpdate}>
               <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '15px'}}>
                 <div>
@@ -548,12 +385,13 @@ export default function CadastroPatrocinadores() {
                   />
                 </div>
                 <div>
-                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Documento:</label>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>CPF:</label>
                   <input
                     type="text"
-                    value={editData.documento}
-                    onChange={(e) => setEditData({...editData, documento: e.target.value})}
+                    value={editData.cpf}
+                    onChange={(e) => setEditData({...editData, cpf: e.target.value})}
                     style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    maxLength="14"
                     required
                   />
                 </div>
@@ -561,42 +399,62 @@ export default function CadastroPatrocinadores() {
                   <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Telefone:</label>
                   <input
                     type="text"
-                    value={editData.celular}
-                    onChange={(e) => setEditData({...editData, celular: e.target.value})}
+                    value={editData.telefone}
+                    onChange={(e) => setEditData({...editData, telefone: e.target.value})}
                     style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    maxLength="20"
                     required
                   />
                 </div>
                 <div>
-                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>E-mail:</label>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Endereço:</label>
                   <input
-                    type="email"
-                    value={editData.email}
-                    onChange={(e) => setEditData({...editData, email: e.target.value})}
+                    type="text"
+                    value={editData.endereco}
+                    onChange={(e) => setEditData({...editData, endereco: e.target.value})}
                     style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
                     required
                   />
                 </div>
                 <div>
-                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Status Filiação:</label>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Membros da Família:</label>
+                  <input
+                    type="number"
+                    value={editData.numero_membros}
+                    onChange={(e) => setEditData({...editData, numero_membros: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    min="1"
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Renda Familiar:</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editData.renda_familiar}
+                    onChange={(e) => setEditData({...editData, renda_familiar: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                  />
+                </div>
+                <div>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Status:</label>
                   <select
-                    value={editData.statusFiliacao}
-                    onChange={(e) => setEditData({...editData, statusFiliacao: e.target.value})}
+                    value={editData.status}
+                    onChange={(e) => setEditData({...editData, status: e.target.value})}
                     style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
                     required
                   >
-                    <option value="Ativa">Ativa</option>
-                    <option value="Inativa">Inativa</option>
+                    <option value="Ativo">Ativo</option>
+                    <option value="Inativo">Inativo</option>
                   </select>
                 </div>
-                <div>
-                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Data da Filiação:</label>
-                  <input
-                    type="date"
-                    value={editData.dataFiliacao}
-                    onChange={(e) => setEditData({...editData, dataFiliacao: e.target.value})}
-                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
-                    required
+                <div style={{gridColumn: '1 / -1'}}>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Observações:</label>
+                  <textarea
+                    value={editData.observacoes}
+                    onChange={(e) => setEditData({...editData, observacoes: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minHeight: '80px'}}
                   />
                 </div>
               </div>
@@ -637,7 +495,7 @@ export default function CadastroPatrocinadores() {
                   fontWeight: '500',
                   fontSize: '16px'
                 }}>
-                  Patrocinador Atualizado
+                  Beneficiado Atualizado
                 </div>
               )}
             </form>
@@ -668,7 +526,7 @@ export default function CadastroPatrocinadores() {
           }}>
             <h3 style={{marginBottom: '15px', textAlign: 'center'}}>Confirmar Exclusão</h3>
             <p style={{marginBottom: '20px', textAlign: 'center'}}>
-              Tem certeza que deseja excluir o patrocinador <strong>{selectedPatrocinador?.nome}</strong>?
+              Tem certeza que deseja excluir o beneficiado <strong>{selectedBeneficiado?.nome}</strong>?
             </p>
             <div style={{display: 'flex', gap: '10px', justifyContent: 'center'}}>
               <button
@@ -697,6 +555,97 @@ export default function CadastroPatrocinadores() {
               >
                 Excluir
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Detalhes */}
+      {showDetails && selectedBeneficiado && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '8px',
+            maxWidth: '600px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+              <h2 style={{margin: 0, fontSize: '20px'}}>Detalhes do Beneficiado</h2>
+              <button
+                onClick={() => setShowDetails(false)}
+                style={{
+                  backgroundColor: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '5px 10px',
+                  cursor: 'pointer'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div style={{display: 'grid', gap: '15px'}}>
+              <div>
+                <strong>ID:</strong> {selectedBeneficiado.id}
+              </div>
+              <div>
+                <strong>Nome:</strong> {selectedBeneficiado.nome}
+              </div>
+              <div>
+                <strong>CPF:</strong> {selectedBeneficiado.cpf}
+              </div>
+              <div>
+                <strong>Telefone:</strong> {selectedBeneficiado.telefone}
+              </div>
+              <div>
+                <strong>Endereço:</strong> {selectedBeneficiado.endereco}
+              </div>
+              <div>
+                <strong>Número de Membros:</strong> {selectedBeneficiado.numero_membros}
+              </div>
+              <div>
+                <strong>Renda Familiar:</strong> R$ {selectedBeneficiado.renda_familiar ? parseFloat(selectedBeneficiado.renda_familiar).toFixed(2) : '0,00'}
+              </div>
+              <div>
+                <strong>Status:</strong> 
+                <span style={{
+                  marginLeft: '10px',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  backgroundColor: selectedBeneficiado.status === 'Ativo' ? '#dcfce7' : '#fee2e2',
+                  color: selectedBeneficiado.status === 'Ativo' ? '#166534' : '#991b1b'
+                }}>
+                  {selectedBeneficiado.status}
+                </span>
+              </div>
+              {selectedBeneficiado.observacoes && (
+                <div>
+                  <strong>Observações:</strong>
+                  <div style={{marginTop: '5px', padding: '10px', backgroundColor: '#f9fafb', borderRadius: '4px'}}>
+                    {selectedBeneficiado.observacoes}
+                  </div>
+                </div>
+              )}
+              <div>
+                <strong>Data de Cadastro:</strong> {selectedBeneficiado.data_cadastro ? new Date(selectedBeneficiado.data_cadastro).toLocaleDateString('pt-BR') : 'N/A'}
+              </div>
             </div>
           </div>
         </div>
@@ -743,7 +692,7 @@ export default function CadastroPatrocinadores() {
               color: '#666',
               fontSize: '16px'
             }}>
-              Patrocinador cadastrado com sucesso!
+              Beneficiado cadastrado com sucesso!
             </p>
           </div>
         </div>
@@ -790,7 +739,7 @@ export default function CadastroPatrocinadores() {
               color: '#666',
               fontSize: '16px'
             }}>
-              Patrocinador excluído com sucesso!
+              Beneficiado excluído com sucesso!
             </p>
           </div>
         </div>

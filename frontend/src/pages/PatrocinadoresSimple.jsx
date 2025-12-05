@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react'
 import { getPatrocinadores, criarPatrocinador, atualizarPatrocinador, excluirPatrocinador } from '../services/api'
 
-export default function CadastroPatrocinadores() {
+export default function PatrocinadoresSimple() {
   const [patrocinadores, setPatrocinadores] = useState([])
-  const [paginaAtual, setPaginaAtual] = useState(1)
-  const itensPorPagina = 15
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
@@ -13,19 +11,17 @@ export default function CadastroPatrocinadores() {
   const [selectedPatrocinador, setSelectedPatrocinador] = useState(null)
   const [editData, setEditData] = useState({})
   const [showUpdateMessage, setShowUpdateMessage] = useState(false)
-  const [showCreateMessage, setShowCreateMessage] = useState(false)
-  const [showDeleteMessage, setShowDeleteMessage] = useState(false)
   const [formData, setFormData] = useState({
     nome: '',
-    tipoDocumento: 'CPF',
+    tipo_documento: 'CPF',
     documento: '',
     rg: '',
-    dataNascimento: '',
     ie: '',
-    celular: '',
+    data_nascimento: '',
+    telefone: '',
     email: '',
-    statusFiliacao: 'Ativa',
-    dataFiliacao: ''
+    status_filiacao: 'Ativa',
+    data_filiacao: ''
   })
 
   useEffect(() => {
@@ -35,7 +31,7 @@ export default function CadastroPatrocinadores() {
   const carregarPatrocinadores = async () => {
     try {
       const data = await getPatrocinadores()
-      setPatrocinadores(data.sort((a, b) => a.nome.localeCompare(b.nome)))
+      setPatrocinadores(data)
     } catch (error) {
       console.error('Erro ao carregar patrocinadores:', error)
     } finally {
@@ -43,91 +39,60 @@ export default function CadastroPatrocinadores() {
     }
   }
 
-  const formatarDocumento = (valor, tipo) => {
-    const numeros = valor.replace(/\D/g, '')
-    if (tipo === 'CPF') {
-      return numeros.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-    } else {
-      return numeros.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
-    }
-  }
-
-  const handleDocumentoChange = (e) => {
-    const valor = e.target.value
-    const numerosSomente = valor.replace(/\D/g, '')
-    const maxLength = formData.tipoDocumento === 'CPF' ? 11 : 14
-    
-    if (numerosSomente.length <= maxLength) {
-      const documentoFormatado = formatarDocumento(numerosSomente, formData.tipoDocumento)
-      setFormData({...formData, documento: documentoFormatado})
-    }
-  }
-
-  const handleTipoDocumentoChange = (e) => {
-    setFormData({
-      ...formData, 
-      tipoDocumento: e.target.value, 
-      documento: '',
-      rg: '',
-      dataNascimento: '',
-      ie: ''
-    })
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      const dadosPatrocinador = {
+      await criarPatrocinador({
         nome: formData.nome,
-        tipoDocumento: formData.tipoDocumento,
+        tipo_documento: formData.tipo_documento,
         documento: formData.documento,
-        rg: formData.rg,
-        ie: formData.ie,
-        dataNascimento: formData.dataNascimento,
-        telefone: formData.celular,
+        rg: formData.rg || null,
+        ie: formData.ie || null,
+        data_nascimento: formData.data_nascimento || null,
+        telefone: formData.telefone,
         email: formData.email,
-        statusFiliacao: formData.statusFiliacao,
-        dataFiliacao: formData.dataFiliacao
-      }
-      
-      await criarPatrocinador(dadosPatrocinador)
+        status_filiacao: 'Ativa',
+        data_filiacao: formData.data_filiacao
+      })
       await carregarPatrocinadores()
-      
       setFormData({
         nome: '',
-        tipoDocumento: 'CPF',
+        tipo_documento: 'CPF',
         documento: '',
         rg: '',
-        dataNascimento: '',
         ie: '',
-        celular: '',
+        data_nascimento: '',
+        telefone: '',
         email: '',
-        statusFiliacao: 'Ativa',
-        dataFiliacao: ''
+        status_filiacao: 'Ativa',
+        data_filiacao: ''
       })
       setShowForm(false)
-      setShowCreateMessage(true)
-      setTimeout(() => {
-        setShowCreateMessage(false)
-      }, 3000)
+      alert('Patrocinador cadastrado com sucesso!')
     } catch (error) {
       alert('Erro ao cadastrar patrocinador')
     }
   }
 
   const handleEdit = (patrocinador) => {
-    const tipoDoc = patrocinador.documento.includes('/') ? 'CNPJ' : 'CPF'
+    // Formatar datas para o formato YYYY-MM-DD
+    const formatDate = (dateString) => {
+      if (!dateString) return ''
+      const date = new Date(dateString)
+      return date.toISOString().split('T')[0]
+    }
+    
     setEditData({
       nome: patrocinador.nome,
-      tipoDocumento: tipoDoc,
+      tipo_documento: patrocinador.tipo_documento,
       documento: patrocinador.documento,
       rg: patrocinador.rg || '',
-      dataNascimento: patrocinador.data_nascimento || '',
       ie: patrocinador.ie || '',
-      celular: patrocinador.telefone,
+      data_nascimento: formatDate(patrocinador.data_nascimento),
+      telefone: patrocinador.telefone,
       email: patrocinador.email,
-      statusFiliacao: patrocinador.status_filiacao,
-      dataFiliacao: patrocinador.data_filiacao || ''
+      status_filiacao: patrocinador.status_filiacao,
+      data_filiacao: formatDate(patrocinador.data_filiacao)
     })
     setSelectedPatrocinador(patrocinador)
     setShowEdit(true)
@@ -136,29 +101,26 @@ export default function CadastroPatrocinadores() {
   const handleUpdate = async (e) => {
     e.preventDefault()
     try {
-      const dadosPatrocinador = {
+      await atualizarPatrocinador(selectedPatrocinador.id, {
         nome: editData.nome,
-        tipoDocumento: editData.tipoDocumento,
+        tipo_documento: editData.tipo_documento,
         documento: editData.documento,
-        rg: editData.rg,
-        ie: editData.ie,
-        dataNascimento: editData.dataNascimento,
-        telefone: editData.celular,
+        rg: editData.rg || null,
+        ie: editData.ie || null,
+        data_nascimento: editData.data_nascimento || null,
+        telefone: editData.telefone,
         email: editData.email,
-        statusFiliacao: editData.statusFiliacao,
-        dataFiliacao: editData.dataFiliacao
-      }
-      
-      await atualizarPatrocinador(selectedPatrocinador.id, dadosPatrocinador)
+        status_filiacao: editData.status_filiacao,
+        data_filiacao: editData.data_filiacao
+      })
       await carregarPatrocinadores()
-      
       setShowUpdateMessage(true)
       setTimeout(() => {
         setShowUpdateMessage(false)
         setShowEdit(false)
       }, 2000)
     } catch (error) {
-      alert('Erro ao alterar informações')
+      alert('Erro ao atualizar patrocinador')
     }
   }
 
@@ -167,10 +129,7 @@ export default function CadastroPatrocinadores() {
       await excluirPatrocinador(selectedPatrocinador.id)
       await carregarPatrocinadores()
       setShowDelete(false)
-      setShowDeleteMessage(true)
-      setTimeout(() => {
-        setShowDeleteMessage(false)
-      }, 3000)
+      alert('Patrocinador excluído com sucesso!')
     } catch (error) {
       alert('Erro ao excluir patrocinador')
     }
@@ -187,7 +146,7 @@ export default function CadastroPatrocinadores() {
         <button
           onClick={() => setShowForm(!showForm)}
           style={{
-            backgroundColor: '#3b82f6',
+            backgroundColor: '#f97316',
             color: 'white',
             padding: '10px 20px',
             border: 'none',
@@ -219,27 +178,30 @@ export default function CadastroPatrocinadores() {
               />
             </div>
             <div>
-              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Documento:</label>
-              <div style={{display: 'flex', gap: '8px'}}>
-                <select
-                  value={formData.tipoDocumento}
-                  onChange={handleTipoDocumentoChange}
-                  style={{padding: '8px', border: '1px solid #ccc', borderRadius: '4px', width: '80px'}}
-                >
-                  <option value="CPF">CPF</option>
-                  <option value="CNPJ">CNPJ</option>
-                </select>
-                <input
-                  type="text"
-                  value={formData.documento}
-                  onChange={handleDocumentoChange}
-                  placeholder={formData.tipoDocumento === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00'}
-                  style={{flex: 1, padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
-                  required
-                />
-              </div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Tipo Documento:</label>
+              <select
+                value={formData.tipo_documento}
+                onChange={(e) => setFormData({...formData, tipo_documento: e.target.value})}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                required
+              >
+                <option value="CPF">CPF</option>
+                <option value="CNPJ">CNPJ</option>
+              </select>
             </div>
-            {formData.tipoDocumento === 'CPF' && (
+            <div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Documento:</label>
+              <input
+                type="text"
+                value={formData.documento}
+                onChange={(e) => setFormData({...formData, documento: e.target.value})}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                maxLength="20"
+                placeholder={formData.tipo_documento === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00'}
+                required
+              />
+            </div>
+            {formData.tipo_documento === 'CPF' && (
               <>
                 <div>
                   <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>RG:</label>
@@ -248,30 +210,29 @@ export default function CadastroPatrocinadores() {
                     value={formData.rg}
                     onChange={(e) => setFormData({...formData, rg: e.target.value})}
                     style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
-                    required
+                    maxLength="20"
                   />
                 </div>
                 <div>
-                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Data de Nascimento:</label>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Data Nascimento:</label>
                   <input
                     type="date"
-                    value={formData.dataNascimento}
-                    onChange={(e) => setFormData({...formData, dataNascimento: e.target.value})}
+                    value={formData.data_nascimento}
+                    onChange={(e) => setFormData({...formData, data_nascimento: e.target.value})}
                     style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
-                    required
                   />
                 </div>
               </>
             )}
-            {formData.tipoDocumento === 'CNPJ' && (
+            {formData.tipo_documento === 'CNPJ' && (
               <div>
                 <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>IE:</label>
                 <input
                   type="text"
                   value={formData.ie}
-                  onChange={(e) => setFormData({...formData, ie: e.target.value.replace(/\D/g, '')})}
+                  onChange={(e) => setFormData({...formData, ie: e.target.value})}
                   style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
-                  required
+                  maxLength="20"
                 />
               </div>
             )}
@@ -279,14 +240,16 @@ export default function CadastroPatrocinadores() {
               <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Telefone:</label>
               <input
                 type="text"
-                value={formData.celular}
-                onChange={(e) => setFormData({...formData, celular: e.target.value})}
+                value={formData.telefone}
+                onChange={(e) => setFormData({...formData, telefone: e.target.value})}
                 style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                maxLength="20"
+                placeholder="(11) 99999-9999"
                 required
               />
             </div>
             <div>
-              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>E-mail:</label>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Email:</label>
               <input
                 type="email"
                 value={formData.email}
@@ -295,23 +258,13 @@ export default function CadastroPatrocinadores() {
                 required
               />
             </div>
+
             <div>
-              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Status Filiação:</label>
-              <select
-                value={formData.statusFiliacao}
-                onChange={(e) => setFormData({...formData, statusFiliacao: e.target.value})}
-                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
-              >
-                <option value="Ativa">Ativa</option>
-                <option value="Inativa">Inativa</option>
-              </select>
-            </div>
-            <div>
-              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Data da Filiação:</label>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Data Filiação:</label>
               <input
                 type="date"
-                value={formData.dataFiliacao}
-                onChange={(e) => setFormData({...formData, dataFiliacao: e.target.value})}
+                value={formData.data_filiacao}
+                onChange={(e) => setFormData({...formData, data_filiacao: e.target.value})}
                 style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
                 required
               />
@@ -342,15 +295,13 @@ export default function CadastroPatrocinadores() {
               <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Nome</th>
               <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Documento</th>
               <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Telefone</th>
-              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>E-mail</th>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Email</th>
               <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Status</th>
               <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Ações</th>
             </tr>
           </thead>
           <tbody>
-            {patrocinadores
-              .slice((paginaAtual - 1) * itensPorPagina, paginaAtual * itensPorPagina)
-              .map((patrocinador) => (
+            {patrocinadores.map((patrocinador) => (
               <tr key={patrocinador.id}>
                 <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{patrocinador.id}</td>
                 <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{patrocinador.nome}</td>
@@ -376,7 +327,7 @@ export default function CadastroPatrocinadores() {
                         setShowDetails(true)
                       }}
                       style={{
-                        backgroundColor: '#6366f1',
+                        backgroundColor: '#10b981',
                         color: 'white',
                         padding: '4px 8px',
                         border: 'none',
@@ -390,7 +341,7 @@ export default function CadastroPatrocinadores() {
                     <button
                       onClick={() => handleEdit(patrocinador)}
                       style={{
-                        backgroundColor: '#f59e0b',
+                        backgroundColor: '#6b7280',
                         color: 'white',
                         padding: '4px 8px',
                         border: 'none',
@@ -426,89 +377,10 @@ export default function CadastroPatrocinadores() {
         </table>
       </div>
 
-      {patrocinadores.length > itensPorPagina && (
-        <div style={{marginTop: '20px', display: 'flex', justifyContent: 'center'}}>
-          <div style={{display: 'flex', gap: '5px'}}>
-            {Array.from({ length: Math.ceil(patrocinadores.length / itensPorPagina) }, (_, i) => (
-              <button
-                key={i + 1}
-                onClick={() => setPaginaAtual(i + 1)}
-                style={{
-                  padding: '8px 12px',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  backgroundColor: paginaAtual === i + 1 ? '#3b82f6' : '#e5e7eb',
-                  color: paginaAtual === i + 1 ? 'white' : '#374151'
-                }}
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {patrocinadores.length === 0 && (
         <p style={{textAlign: 'center', marginTop: '20px', color: '#666'}}>
           Nenhum patrocinador cadastrado.
         </p>
-      )}
-
-      {/* Modal de Detalhes */}
-      {showDetails && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            padding: '20px',
-            borderRadius: '8px',
-            maxWidth: '600px',
-            width: '90%',
-            maxHeight: '80vh',
-            overflow: 'auto'
-          }}>
-            <h2 style={{marginBottom: '20px'}}>Detalhes do Patrocinador</h2>
-            {selectedPatrocinador && (
-              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px'}}>
-                <div><strong>Nome:</strong> {selectedPatrocinador.nome}</div>
-                <div><strong>Documento:</strong> {selectedPatrocinador.documento}</div>
-                <div><strong>Telefone:</strong> {selectedPatrocinador.telefone}</div>
-                <div><strong>E-mail:</strong> {selectedPatrocinador.email}</div>
-                <div><strong>Status:</strong> {selectedPatrocinador.status_filiacao}</div>
-                <div><strong>Data Filiação:</strong> {selectedPatrocinador.data_filiacao}</div>
-                {selectedPatrocinador.rg && <div><strong>RG:</strong> {selectedPatrocinador.rg}</div>}
-                {selectedPatrocinador.ie && <div><strong>IE:</strong> {selectedPatrocinador.ie}</div>}
-                {selectedPatrocinador.data_nascimento && <div><strong>Data Nascimento:</strong> {selectedPatrocinador.data_nascimento}</div>}
-              </div>
-            )}
-            <div style={{marginTop: '20px', textAlign: 'center'}}>
-              <button
-                onClick={() => setShowDetails(false)}
-                style={{
-                  backgroundColor: '#6b7280',
-                  color: 'white',
-                  padding: '10px 20px',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer'
-                }}
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Modal de Edição */}
@@ -548,27 +420,76 @@ export default function CadastroPatrocinadores() {
                   />
                 </div>
                 <div>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Tipo Documento:</label>
+                  <select
+                    value={editData.tipo_documento}
+                    onChange={(e) => setEditData({...editData, tipo_documento: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    required
+                  >
+                    <option value="CPF">CPF</option>
+                    <option value="CNPJ">CNPJ</option>
+                  </select>
+                </div>
+                <div>
                   <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Documento:</label>
                   <input
                     type="text"
                     value={editData.documento}
                     onChange={(e) => setEditData({...editData, documento: e.target.value})}
                     style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    maxLength="20"
                     required
                   />
                 </div>
+                {editData.tipo_documento === 'CPF' && (
+                  <>
+                    <div>
+                      <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>RG:</label>
+                      <input
+                        type="text"
+                        value={editData.rg}
+                        onChange={(e) => setEditData({...editData, rg: e.target.value})}
+                        style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                        maxLength="20"
+                      />
+                    </div>
+                    <div>
+                      <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Data Nascimento:</label>
+                      <input
+                        type="date"
+                        value={editData.data_nascimento}
+                        onChange={(e) => setEditData({...editData, data_nascimento: e.target.value})}
+                        style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                      />
+                    </div>
+                  </>
+                )}
+                {editData.tipo_documento === 'CNPJ' && (
+                  <div>
+                    <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>IE:</label>
+                    <input
+                      type="text"
+                      value={editData.ie}
+                      onChange={(e) => setEditData({...editData, ie: e.target.value})}
+                      style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                      maxLength="20"
+                    />
+                  </div>
+                )}
                 <div>
                   <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Telefone:</label>
                   <input
                     type="text"
-                    value={editData.celular}
-                    onChange={(e) => setEditData({...editData, celular: e.target.value})}
+                    value={editData.telefone}
+                    onChange={(e) => setEditData({...editData, telefone: e.target.value})}
                     style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    maxLength="20"
                     required
                   />
                 </div>
                 <div>
-                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>E-mail:</label>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Email:</label>
                   <input
                     type="email"
                     value={editData.email}
@@ -577,11 +498,12 @@ export default function CadastroPatrocinadores() {
                     required
                   />
                 </div>
+
                 <div>
-                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Status Filiação:</label>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Status:</label>
                   <select
-                    value={editData.statusFiliacao}
-                    onChange={(e) => setEditData({...editData, statusFiliacao: e.target.value})}
+                    value={editData.status_filiacao}
+                    onChange={(e) => setEditData({...editData, status_filiacao: e.target.value})}
                     style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
                     required
                   >
@@ -590,11 +512,11 @@ export default function CadastroPatrocinadores() {
                   </select>
                 </div>
                 <div>
-                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Data da Filiação:</label>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Data Filiação:</label>
                   <input
                     type="date"
-                    value={editData.dataFiliacao}
-                    onChange={(e) => setEditData({...editData, dataFiliacao: e.target.value})}
+                    value={editData.data_filiacao}
+                    onChange={(e) => setEditData({...editData, data_filiacao: e.target.value})}
                     style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
                     required
                   />
@@ -702,8 +624,8 @@ export default function CadastroPatrocinadores() {
         </div>
       )}
 
-      {/* Modal de Confirmação de Cadastro */}
-      {showCreateMessage && (
+      {/* Modal de Detalhes */}
+      {showDetails && selectedPatrocinador && (
         <div style={{
           position: 'fixed',
           top: 0,
@@ -720,78 +642,82 @@ export default function CadastroPatrocinadores() {
             backgroundColor: 'white',
             padding: '30px',
             borderRadius: '8px',
-            maxWidth: '400px',
+            maxWidth: '600px',
             width: '90%',
-            textAlign: 'center'
+            maxHeight: '80vh',
+            overflow: 'auto'
           }}>
-            <div style={{
-              fontSize: '48px',
-              color: '#10b981',
-              marginBottom: '15px'
-            }}>
-              ✓
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+              <h2 style={{margin: 0, fontSize: '20px'}}>Detalhes do Patrocinador</h2>
+              <button
+                onClick={() => setShowDetails(false)}
+                style={{
+                  backgroundColor: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '5px 10px',
+                  cursor: 'pointer'
+                }}
+              >
+                ×
+              </button>
             </div>
-            <h3 style={{
-              marginBottom: '10px',
-              color: '#10b981',
-              fontSize: '18px'
-            }}>
-              Sucesso!
-            </h3>
-            <p style={{
-              margin: 0,
-              color: '#666',
-              fontSize: '16px'
-            }}>
-              Patrocinador cadastrado com sucesso!
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Confirmação de Exclusão */}
-      {showDeleteMessage && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            padding: '30px',
-            borderRadius: '8px',
-            maxWidth: '400px',
-            width: '90%',
-            textAlign: 'center'
-          }}>
-            <div style={{
-              fontSize: '48px',
-              color: '#ef4444',
-              marginBottom: '15px'
-            }}>
-              ✓
+            
+            <div style={{display: 'grid', gap: '15px'}}>
+              <div>
+                <strong>ID:</strong> {selectedPatrocinador.id}
+              </div>
+              <div>
+                <strong>Nome:</strong> {selectedPatrocinador.nome}
+              </div>
+              <div>
+                <strong>Tipo Documento:</strong> {selectedPatrocinador.tipo_documento}
+              </div>
+              <div>
+                <strong>Documento:</strong> {selectedPatrocinador.documento}
+              </div>
+              {selectedPatrocinador.rg && (
+                <div>
+                  <strong>RG:</strong> {selectedPatrocinador.rg}
+                </div>
+              )}
+              {selectedPatrocinador.ie && (
+                <div>
+                  <strong>IE:</strong> {selectedPatrocinador.ie}
+                </div>
+              )}
+              {selectedPatrocinador.data_nascimento && (
+                <div>
+                  <strong>Data Nascimento:</strong> {new Date(selectedPatrocinador.data_nascimento).toLocaleDateString('pt-BR')}
+                </div>
+              )}
+              <div>
+                <strong>Telefone:</strong> {selectedPatrocinador.telefone}
+              </div>
+              <div>
+                <strong>Email:</strong> {selectedPatrocinador.email}
+              </div>
+              <div>
+                <strong>Status Filiação:</strong> 
+                <span style={{
+                  marginLeft: '10px',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  backgroundColor: selectedPatrocinador.status_filiacao === 'Ativa' ? '#dcfce7' : '#fee2e2',
+                  color: selectedPatrocinador.status_filiacao === 'Ativa' ? '#166534' : '#991b1b'
+                }}>
+                  {selectedPatrocinador.status_filiacao}
+                </span>
+              </div>
+              <div>
+                <strong>Data Filiação:</strong> {selectedPatrocinador.data_filiacao ? new Date(selectedPatrocinador.data_filiacao).toLocaleDateString('pt-BR') : 'N/A'}
+              </div>
+              <div>
+                <strong>Data de Cadastro:</strong> {selectedPatrocinador.data_cadastro ? new Date(selectedPatrocinador.data_cadastro).toLocaleDateString('pt-BR') : 'N/A'}
+              </div>
             </div>
-            <h3 style={{
-              marginBottom: '10px',
-              color: '#ef4444',
-              fontSize: '18px'
-            }}>
-              Excluído!
-            </h3>
-            <p style={{
-              margin: 0,
-              color: '#666',
-              fontSize: '16px'
-            }}>
-              Patrocinador excluído com sucesso!
-            </p>
           </div>
         </div>
       )}

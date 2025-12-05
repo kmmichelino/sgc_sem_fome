@@ -3,14 +3,7 @@ import { Link } from 'react-router-dom'
 export default function Home() {
   return (
     <div>
-      <div className="hero-section">
-        <h1 style={{fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '1rem'}}>
-          SGC - Sistema de Gerenciamento e Controle
-        </h1>
-        <p style={{fontSize: '1.2rem', opacity: '0.9'}}>
-          ONG SEM FOME - Controle Administrativo
-        </p>
-      </div>
+
 
       <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '3rem'}}>
         <Link to="/estoque" className="object-card" style={{textDecoration: 'none', color: 'inherit'}}>

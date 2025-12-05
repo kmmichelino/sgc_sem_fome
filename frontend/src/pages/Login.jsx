@@ -1,74 +1,114 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 
 export default function Login({ onLogin }) {
-  const [usuario, setUsuario] = useState('')
-  const [senha, setSenha] = useState('')
-  const [erroUsuario, setErroUsuario] = useState('')
-  const [erroSenha, setErroSenha] = useState('')
-  const navigate = useNavigate()
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    setErroUsuario('')
-    setErroSenha('')
-
-    if (!usuario) {
-      setErroUsuario('Preencha este campo')
-      return
+    
+    // Simple login validation - you can expand this later
+    if (username === 'dev' && password === '1234') {
+      onLogin()
+    } else {
+      setError('Credenciais inválidas. Use: dev/1234')
     }
-    if (!senha) {
-      setErroSenha('Insira uma senha')
-      return
-    }
-    if (usuario !== 'dev') {
-      setErroUsuario('Usuário não cadastrado')
-      return
-    }
-    if (senha !== '1234') {
-      setErroSenha('Senha Incorreta')
-      return
-    }
-
-    onLogin()
-    navigate('/')
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg shadow-lg w-96">
-        <h1 className="text-2xl font-bold text-center mb-6">SGC - Login</h1>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#f97316'
+    }}>
+      <div style={{
+        backgroundColor: 'white',
+        padding: '2rem',
+        borderRadius: '8px',
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+        width: '100%',
+        maxWidth: '400px'
+      }}>
+        <h1 style={{
+          fontSize: '1.5rem',
+          fontWeight: 'bold',
+          textAlign: 'center',
+          marginBottom: '2rem',
+          color: '#1f2937'
+        }}>
+          SGC
+        </h1>
         
         <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Usuário</label>
+          <div style={{ marginBottom: '1rem' }}>
             <input
               type="text"
-              value={usuario}
-              onChange={(e) => setUsuario(e.target.value)}
-              className={`w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500 ${erroUsuario ? 'border-red-500' : ''}`}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Usuário"
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '4px',
+                fontSize: '1rem',
+                outline: 'none'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#fed7aa'}
+              onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+              required
             />
-            {erroUsuario && (
-              <div className="text-red-500 text-sm mt-1">{erroUsuario}</div>
-            )}
           </div>
-
-          <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">Senha</label>
+          
+          <div style={{ marginBottom: '1.5rem' }}>
             <input
               type="password"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              className={`w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500 ${erroSenha ? 'border-red-500' : ''}`}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Senha"
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '4px',
+                fontSize: '1rem',
+                outline: 'none'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#fed7aa'}
+              onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+              required
             />
-            {erroSenha && (
-              <div className="text-red-500 text-sm mt-1">{erroSenha}</div>
-            )}
           </div>
-
+          
+          {error && (
+            <div style={{
+              backgroundColor: '#fee2e2',
+              color: '#dc2626',
+              padding: '0.75rem',
+              borderRadius: '4px',
+              marginBottom: '1rem',
+              fontSize: '0.875rem'
+            }}>
+              {error}
+            </div>
+          )}
+          
           <button
             type="submit"
-            className="w-full bg-orange-500 text-white p-3 rounded hover:bg-orange-600 transition-colors"
+            style={{
+              width: '100%',
+              backgroundColor: '#10b981',
+              color: 'white',
+              padding: '0.75rem',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '1rem',
+              fontWeight: '500',
+              cursor: 'pointer'
+            }}
           >
             Entrar
           </button>

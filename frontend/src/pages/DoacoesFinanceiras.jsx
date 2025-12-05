@@ -74,10 +74,21 @@ export default function DoacoesFinanceiras() {
   const [patrocinadorNaoEncontrado, setPatrocinadorNaoEncontrado] = useState(false)
 
   useEffect(() => {
+    // Inicializar com dados padrão
+    setMovimentacoes(movimentacoesIniciais)
+    calcularTotaisLocais()
+    
+    // Tentar carregar dados da API
     carregarDoacoes()
     carregarMovimentacoes()
     carregarTotais()
   }, [])
+
+  const calcularTotaisLocais = () => {
+    const entradas = movimentacoesIniciais.filter(m => m.tipo === 'Entrada').reduce((sum, m) => sum + m.valor, 0)
+    const saidas = movimentacoesIniciais.filter(m => m.tipo === 'Saída').reduce((sum, m) => sum + m.valor, 0)
+    setTotais({ entradas, saidas })
+  }
 
   const carregarDoacoes = async () => {
     try {
@@ -91,21 +102,19 @@ export default function DoacoesFinanceiras() {
   const carregarMovimentacoes = async () => {
     try {
       const response = await getMovimentacoesFinanceiras()
-      if (response.success) {
+      if (response.success && response.data.length > 0) {
         setMovimentacoes([...movimentacoesIniciais, ...response.data])
-      } else {
-        setMovimentacoes(movimentacoesIniciais)
       }
     } catch (error) {
       console.error('Erro ao carregar movimentações:', error)
-      setMovimentacoes(movimentacoesIniciais)
+      // Manter dados iniciais se API falhar
     }
   }
 
   const carregarTotais = async () => {
     try {
       const response = await getTotaisFinanceiros()
-      if (response.success) {
+      if (response.success && response.data.length > 0) {
         const totaisData = response.data.reduce((acc, item) => {
           if (item.tipo === 'Entrada') acc.entradas = item.total
           if (item.tipo === 'Saída') acc.saidas = item.total
@@ -115,6 +124,7 @@ export default function DoacoesFinanceiras() {
       }
     } catch (error) {
       console.error('Erro ao carregar totais:', error)
+      // Manter totais calculados localmente se API falhar
     }
   }
 
@@ -300,14 +310,27 @@ export default function DoacoesFinanceiras() {
         <div style={{display: 'flex', gap: '1rem'}}>
           <button
             onClick={() => setShowForm(!showForm)}
-            className="btn-primary"
+            style={{
+              backgroundColor: '#10b981',
+              color: 'white',
+              padding: '10px 20px',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
           >
             {showForm ? 'Cancelar' : 'Registrar Entrada'}
           </button>
           <button
             onClick={() => setShowSaidaModal(true)}
-            className="btn-primary"
-            style={{backgroundColor: '#dc3545'}}
+            style={{
+              backgroundColor: '#f97316',
+              color: 'white',
+              padding: '10px 20px',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
           >
             Registrar Saída
           </button>
@@ -619,26 +642,26 @@ export default function DoacoesFinanceiras() {
           <div className="bg-white p-6 rounded-lg shadow cursor-pointer hover:bg-gray-50" onClick={() => setFiltroTipo(filtroTipo === 'Entrada' ? '' : 'Entrada')}>
             <h3 className="text-lg font-semibold text-green-600 mb-2">Total Entradas</h3>
             <p className="text-3xl font-bold text-green-700">
-              R$ {(movimentacoes.filter(m => m.tipo === 'Entrada').reduce((sum, m) => sum + m.valor, 0) + totais.entradas).toFixed(2)}
+              R$ {(Number(movimentacoes.filter(m => m.tipo === 'Entrada').reduce((sum, m) => sum + Number(m.valor || 0), 0)) + Number(totais.entradas || 0)).toFixed(2)}
             </p>
           </div>
           
           <div className="bg-white p-6 rounded-lg shadow cursor-pointer hover:bg-gray-50" onClick={() => setFiltroTipo(filtroTipo === 'Saída' ? '' : 'Saída')}>
             <h3 className="text-lg font-semibold text-red-600 mb-2">Total Saídas</h3>
             <p className="text-3xl font-bold text-red-700">
-              R$ {(movimentacoes.filter(m => m.tipo === 'Saída').reduce((sum, m) => sum + m.valor, 0) + totais.saidas).toFixed(2)}
+              R$ {(Number(movimentacoes.filter(m => m.tipo === 'Saída').reduce((sum, m) => sum + Number(m.valor || 0), 0)) + Number(totais.saidas || 0)).toFixed(2)}
             </p>
           </div>
           
           <div className="bg-white p-6 rounded-lg shadow">
             <h3 className="text-lg font-semibold text-blue-600 mb-2">Saldo</h3>
             <p className={`text-3xl font-bold ${
-              ((movimentacoes.filter(m => m.tipo === 'Entrada').reduce((sum, m) => sum + m.valor, 0) + totais.entradas) - 
-               (movimentacoes.filter(m => m.tipo === 'Saída').reduce((sum, m) => sum + m.valor, 0) + totais.saidas)) >= 0 
+              ((Number(movimentacoes.filter(m => m.tipo === 'Entrada').reduce((sum, m) => sum + Number(m.valor || 0), 0)) + Number(totais.entradas || 0)) - 
+               (Number(movimentacoes.filter(m => m.tipo === 'Saída').reduce((sum, m) => sum + Number(m.valor || 0), 0)) + Number(totais.saidas || 0))) >= 0 
                 ? 'text-green-700' : 'text-red-700'
             }`}>
-              R$ {((movimentacoes.filter(m => m.tipo === 'Entrada').reduce((sum, m) => sum + m.valor, 0) + totais.entradas) - 
-                   (movimentacoes.filter(m => m.tipo === 'Saída').reduce((sum, m) => sum + m.valor, 0) + totais.saidas)).toFixed(2)}
+              R$ {((Number(movimentacoes.filter(m => m.tipo === 'Entrada').reduce((sum, m) => sum + Number(m.valor || 0), 0)) + Number(totais.entradas || 0)) - 
+                   (Number(movimentacoes.filter(m => m.tipo === 'Saída').reduce((sum, m) => sum + Number(m.valor || 0), 0)) + Number(totais.saidas || 0))).toFixed(2)}
             </p>
           </div>
         </div>
@@ -673,7 +696,7 @@ export default function DoacoesFinanceiras() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                    R$ {movimentacao.valor.toFixed(2)}
+                    R$ {Number(movimentacao.valor || 0).toFixed(2)}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900">{movimentacao.documento}</td>
                   <td className="px-4 py-3 text-sm text-gray-900">

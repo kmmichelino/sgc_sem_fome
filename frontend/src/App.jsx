@@ -8,7 +8,7 @@ import Estoque from './pages/Estoque'
 import EntradaProdutos from './pages/EntradaProdutos'
 import SaidaProdutos from './pages/SaidaProdutos'
 import DoacoesFinanceiras from './pages/DoacoesFinanceiras'
-import CadastroPatrocinadores from './pages/CadastroPatrocinadores'
+import PatrocinadoresSimple from './pages/PatrocinadoresSimple'
 import Beneficiados from './pages/Beneficiados'
 import Voluntarios from './pages/Voluntarios'
 
@@ -27,14 +27,14 @@ function App() {
     <Router>
       <div className="min-h-screen bg-gray-50 flex flex-col">
         <Navigation onLogout={() => setIsLoggedIn(false)} />
-        <main className="ml-64 flex-1 pb-16">
+        <main style={{marginTop: '60px', padding: '20px'}}>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/estoque" element={<Estoque />} />
             <Route path="/entrada-produtos" element={<EntradaProdutos />} />
             <Route path="/saida-produtos" element={<SaidaProdutos />} />
             <Route path="/doacoes-financeiras" element={<DoacoesFinanceiras />} />
-            <Route path="/cadastro-patrocinadores" element={<CadastroPatrocinadores />} />
+            <Route path="/patrocinadores" element={<PatrocinadoresSimple />} />
             <Route path="/beneficiados" element={<Beneficiados />} />
             <Route path="/voluntarios" element={<Voluntarios />} />
           </Routes>

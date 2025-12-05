@@ -20,7 +20,7 @@ function Navigation({ onLogout }) {
           <Link to="/doacoes-financeiras" className="nav-link">
             💰 Financeiro
           </Link>
-          <Link to="/cadastro-patrocinadores" className="nav-link">
+          <Link to="/patrocinadores" className="nav-link">
             🤝 Patrocinadores
           </Link>
           <Link to="/saida-produtos" className="nav-link">

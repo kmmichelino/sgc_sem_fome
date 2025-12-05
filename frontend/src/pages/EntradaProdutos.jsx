@@ -1,10 +1,19 @@
 import { useState, useEffect } from 'react'
-import { registrarEntradaProduto, excluirEntradaProduto } from '../services/api'
+import { registrarEntradaProduto, excluirEntradaProduto, getVoluntarios, getEntradasProdutos } from '../services/api'
 
 export default function EntradaProdutos() {
   const [entradas, setEntradas] = useState([])
-  const [paginaAtual, setPaginaAtual] = useState(1)
-  const itensPorPagina = 10
+  const [voluntarios, setVoluntarios] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
+  const [selectedEntrada, setSelectedEntrada] = useState(null)
+  const [editData, setEditData] = useState({})
+  const [showUpdateMessage, setShowUpdateMessage] = useState(false)
+  const [showCreateMessage, setShowCreateMessage] = useState(false)
+  const [showDeleteMessage, setShowDeleteMessage] = useState(false)
   const [formData, setFormData] = useState({
     tipoProduto: '',
     produto: '',
@@ -16,221 +25,53 @@ export default function EntradaProdutos() {
     tipoDocumento: 'CPF',
     documento: ''
   })
-  const [erros, setErros] = useState({})
-  const [editando, setEditando] = useState(false)
-  const [itemEditando, setItemEditando] = useState(null)
-  const [modalExcluir, setModalExcluir] = useState(false)
-  const [itemExcluir, setItemExcluir] = useState(null)
-  const [alteracoesConcluidas, setAlteracoesConcluidas] = useState(false)
-  const [exclusaoConcluida, setExclusaoConcluida] = useState(false)
 
   useEffect(() => {
     carregarEntradas()
+    carregarVoluntarios()
+    
+    // Listener para atualizar voluntários quando um novo for cadastrado
+    const handleVoluntariosUpdated = () => {
+      carregarVoluntarios()
+    }
+    
+    window.addEventListener('voluntariosUpdated', handleVoluntariosUpdated)
+    
+    return () => {
+      window.removeEventListener('voluntariosUpdated', handleVoluntariosUpdated)
+    }
   }, [])
+
+  const carregarVoluntarios = async () => {
+    try {
+      const data = await getVoluntarios()
+      setVoluntarios(data)
+    } catch (error) {
+      console.error('Erro ao carregar voluntários:', error)
+      // Fallback para voluntários padrão
+      setVoluntarios([
+        { id: 1, nome: 'Ana Silva' },
+        { id: 2, nome: 'Carlos Santos' },
+        { id: 3, nome: 'Maria Oliveira' }
+      ])
+    }
+  }
 
   const carregarEntradas = async () => {
     try {
-      const entradasSalvas = JSON.parse(localStorage.getItem('entradas') || '[]')
-      
-      const entradasIniciais = [
-        { id: 1, cod_entrada: 1, tipo_produto: 'Alimento não Perecível', produto: 'Arroz', quantidade: '50', unidade: 'KG', data_entrada: '2024-01-15', responsavel: 'João', parceiro: 'Supermercado ABC', documento: '123.456.789-00' },
-        { id: 2, cod_entrada: 2, tipo_produto: 'Alimento não Perecível', produto: 'Feijão', quantidade: '30', unidade: 'KG', data_entrada: '2024-01-14', responsavel: 'Maria', parceiro: 'Empresa XYZ', documento: '987.654.321-00' },
-        { id: 3, cod_entrada: 3, tipo_produto: 'Higiene Pessoal', produto: 'Sabonete', quantidade: '100', unidade: 'UN', data_entrada: '2024-01-13', responsavel: 'Pedro', parceiro: 'Doação Individual', documento: '111.222.333-44' },
-        { id: 4, cod_entrada: 4, tipo_produto: 'Roupas', produto: 'Camiseta', quantidade: '25', unidade: 'UN', data_entrada: '2024-01-12', responsavel: 'Ana', parceiro: 'Loja de Roupas', documento: '555.666.777-88' },
-        { id: 5, cod_entrada: 5, tipo_produto: 'Alimento Perecível', produto: 'Banana', quantidade: '10', unidade: 'KG', data_entrada: '2024-01-11', responsavel: 'Carlos', parceiro: 'Feira Local', documento: '999.888.777-66' },
-        { id: 6, cod_entrada: 6, tipo_produto: 'Alimento não Perecível', produto: 'Macarrão', quantidade: '40', unidade: 'KG', data_entrada: '2024-01-10', responsavel: 'Lucia', parceiro: 'Indústria Alimentos', documento: '12.345.678/0001-90' },
-        { id: 7, cod_entrada: 7, tipo_produto: 'Higiene Pessoal', produto: 'Pasta de Dente', quantidade: '50', unidade: 'UN', data_entrada: '2024-01-09', responsavel: 'Roberto', parceiro: 'Farmácia Popular', documento: '444.333.222-11' },
-        { id: 8, cod_entrada: 8, tipo_produto: 'Alimento não Perecível', produto: 'Óleo', quantidade: '20', unidade: 'L', data_entrada: '2024-01-08', responsavel: 'Fernanda', parceiro: 'Atacadista Regional', documento: '98.765.432/0001-10' },
-        { id: 9, cod_entrada: 9, tipo_produto: 'Roupas', produto: 'Calça', quantidade: '15', unidade: 'UN', data_entrada: '2024-01-07', responsavel: 'Marcos', parceiro: 'Confecção Local', documento: '777.888.999-00' },
-        { id: 10, cod_entrada: 10, tipo_produto: 'Alimento Perecível', produto: 'Leite', quantidade: '30', unidade: 'L', data_entrada: '2024-01-06', responsavel: 'Julia', parceiro: 'Laticínios Vale', documento: '11.222.333/0001-44' },
-        { id: 11, cod_entrada: 11, tipo_produto: 'Alimento não Perecível', produto: 'Açúcar', quantidade: '25', unidade: 'KG', data_entrada: '2024-01-05', responsavel: 'Diego', parceiro: 'Usina Açucareira', documento: '22.333.444/0001-55' },
-        { id: 12, cod_entrada: 12, tipo_produto: 'Higiene Pessoal', produto: 'Shampoo', quantidade: '35', unidade: 'UN', data_entrada: '2024-01-04', responsavel: 'Carla', parceiro: 'Distribuidora Beleza', documento: '123.987.456-78' }
-      ]
-      
-      if (entradasSalvas.length === 0) {
-        localStorage.setItem('entradas', JSON.stringify(entradasIniciais))
-        setEntradas(entradasIniciais)
-      } else {
-        setEntradas(entradasSalvas)
-      }
+      const data = await getEntradasProdutos()
+      setEntradas(data.sort((a, b) => a.produto.localeCompare(b.produto)))
     } catch (error) {
       console.error('Erro ao carregar entradas:', error)
+      // Fallback para dados iniciais se a API falhar
+      const entradasIniciais = [
+        { id: 1, cod_entrada: 1, tipo_produto: 'Alimento não Perecível', produto: 'Arroz', quantidade: '50', unidade: 'KG', data_entrada: '2024-01-15', responsavel: 'João', parceiro: 'Supermercado ABC', documento: '123.456.789-00' },
+        { id: 2, cod_entrada: 2, tipo_produto: 'Alimento não Perecível', produto: 'Feijão', quantidade: '30', unidade: 'KG', data_entrada: '2024-01-14', responsavel: 'Maria', parceiro: 'Empresa XYZ', documento: '987.654.321-00' }
+      ]
+      setEntradas(entradasIniciais.sort((a, b) => a.produto.localeCompare(b.produto)))
+    } finally {
+      setLoading(false)
     }
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    
-    const novosErros = {}
-    if (!formData.tipoProduto) novosErros.tipoProduto = 'Preenchimento obrigatório'
-    if (!formData.produto) novosErros.produto = 'Preenchimento obrigatório'
-    if (!formData.quantidade) novosErros.quantidade = 'Preenchimento obrigatório'
-    if (!formData.unidade) novosErros.unidade = 'Preenchimento obrigatório'
-    if (!formData.dataEntrada) novosErros.dataEntrada = 'Preenchimento obrigatório'
-    if (!formData.responsavel) novosErros.responsavel = 'Preenchimento obrigatório'
-    if (!formData.parceiro) novosErros.parceiro = 'Preenchimento obrigatório'
-    if (!formData.documento) novosErros.documento = 'Preenchimento obrigatório'
-    
-    setErros(novosErros)
-    
-    if (Object.keys(novosErros).length > 0) {
-      return
-    }
-    
-    try {
-      const novaEntrada = {
-        id: Date.now(),
-        cod_entrada: entradas.length + 1,
-        tipo_produto: formData.tipoProduto,
-        produto: formData.produto,
-        quantidade: formData.quantidade,
-        unidade: formData.unidade,
-        data_entrada: formData.dataEntrada,
-        responsavel: formData.responsavel,
-        parceiro: formData.parceiro,
-        documento: formData.documento
-      }
-      
-      const novasEntradas = [...entradas, novaEntrada]
-      setEntradas(novasEntradas)
-      localStorage.setItem('entradas', JSON.stringify(novasEntradas))
-      
-      // Disparar evento para atualizar o gráfico
-      window.dispatchEvent(new Event('entradasUpdated'))
-      
-      alert('Entrada registrada com sucesso!')
-      setFormData({
-        tipoProduto: '',
-        produto: '',
-        quantidade: '',
-        unidade: '',
-        dataEntrada: '',
-        responsavel: '',
-        parceiro: '',
-        tipoDocumento: 'CPF',
-        documento: ''
-      })
-      setErros({})
-    } catch (error) {
-      alert('Erro ao registrar entrada')
-    }
-  }
-
-  const handleEditar = (id) => {
-    const entrada = entradas.find(e => e.id === id)
-    if (entrada) {
-      setFormData({
-        tipoProduto: entrada.tipo_produto,
-        produto: entrada.produto,
-        quantidade: entrada.quantidade,
-        unidade: entrada.unidade,
-        dataEntrada: entrada.data_entrada,
-        responsavel: entrada.responsavel,
-        parceiro: entrada.parceiro || '',
-        tipoDocumento: 'CPF',
-        documento: entrada.documento || ''
-      })
-      setItemEditando(entrada)
-      setEditando(true)
-    }
-  }
-
-  const handleCancelarEdicao = () => {
-    setEditando(false)
-    setItemEditando(null)
-    setFormData({
-      tipoProduto: '',
-      produto: '',
-      quantidade: '',
-      unidade: '',
-      dataEntrada: '',
-      responsavel: '',
-      parceiro: '',
-      tipoDocumento: 'CPF',
-      documento: ''
-    })
-    setErros({})
-  }
-
-  const handleAlterarInformacoes = async (e) => {
-    e.preventDefault()
-    
-    const novosErros = {}
-    if (!formData.tipoProduto) novosErros.tipoProduto = 'Preenchimento obrigatório'
-    if (!formData.produto) novosErros.produto = 'Preenchimento obrigatório'
-    if (!formData.quantidade) novosErros.quantidade = 'Preenchimento obrigatório'
-    if (!formData.unidade) novosErros.unidade = 'Preenchimento obrigatório'
-    if (!formData.dataEntrada) novosErros.dataEntrada = 'Preenchimento obrigatório'
-    if (!formData.responsavel) novosErros.responsavel = 'Preenchimento obrigatório'
-    if (!formData.parceiro) novosErros.parceiro = 'Preenchimento obrigatório'
-    if (!formData.documento) novosErros.documento = 'Preenchimento obrigatório'
-    
-    setErros(novosErros)
-    
-    if (Object.keys(novosErros).length > 0) {
-      return
-    }
-    
-    try {
-      // Simular atualização no banco
-      const entradasAtualizadas = entradas.map(entrada => 
-        entrada.id === itemEditando.id 
-          ? {
-              ...entrada,
-              tipo_produto: formData.tipoProduto,
-              produto: formData.produto,
-              quantidade: formData.quantidade,
-              unidade: formData.unidade,
-              data_entrada: formData.dataEntrada,
-              responsavel: formData.responsavel
-            }
-          : entrada
-      )
-      setEntradas(entradasAtualizadas)
-      localStorage.setItem('entradas', JSON.stringify(entradasAtualizadas))
-      
-      // Disparar evento para atualizar o gráfico
-      window.dispatchEvent(new Event('entradasUpdated'))
-      
-      setAlteracoesConcluidas(true)
-      setTimeout(() => {
-        setAlteracoesConcluidas(false)
-        handleCancelarEdicao()
-      }, 2000)
-    } catch (error) {
-      alert('Erro ao alterar informações')
-    }
-  }
-
-  const handleExcluir = (id) => {
-    const entrada = entradas.find(e => e.id === id)
-    setItemExcluir(entrada)
-    setModalExcluir(true)
-  }
-
-  const confirmarExclusao = async () => {
-    try {
-      // Simular exclusão no banco
-      const novasEntradas = entradas.filter(entrada => entrada.id !== itemExcluir.id)
-      setEntradas(novasEntradas)
-      localStorage.setItem('entradas', JSON.stringify(novasEntradas))
-      
-      // Disparar evento para atualizar o gráfico
-      window.dispatchEvent(new Event('entradasUpdated'))
-      setExclusaoConcluida(true)
-      setTimeout(() => {
-        setExclusaoConcluida(false)
-        setModalExcluir(false)
-        setItemExcluir(null)
-      }, 2000)
-    } catch (error) {
-      alert('Erro ao excluir entrada')
-    }
-  }
-
-  const cancelarExclusao = () => {
-    setModalExcluir(false)
-    setItemExcluir(null)
   }
 
   const formatarDocumento = (valor, tipo) => {
@@ -253,397 +94,724 @@ export default function EntradaProdutos() {
     }
   }
 
-  return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">
-        {editando ? 'Editar Entrada de Produto' : 'Registrar Entrada de Produtos'}
-      </h1>
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    try {
+      const dadosEntrada = {
+        tipo_produto: formData.tipoProduto,
+        produto: formData.produto,
+        quantidade: parseInt(formData.quantidade),
+        unidade: formData.unidade,
+        data_entrada: formData.dataEntrada,
+        responsavel: formData.responsavel,
+        parceiro: formData.parceiro,
+        documento: formData.documento
+      }
       
-      {!editando && (
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow max-w-4xl mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Tipo de Produto</label>
-            <select
-              value={formData.tipoProduto}
-              onChange={(e) => setFormData({...formData, tipoProduto: e.target.value})}
-              className={`w-full p-2 border rounded ${erros.tipoProduto ? 'border-red-500' : ''}`}
-            >
-              <option value="">Selecione o tipo</option>
-              <option value="Alimento Perecível">Alimento Perecível</option>
-              <option value="Alimento não Perecível">Alimento não Perecível</option>
-              <option value="Higiene Pessoal">Higiene Pessoal</option>
-              <option value="Roupas">Roupas</option>
-            </select>
-            {erros.tipoProduto && <div className="text-red-500 text-sm mt-1">{erros.tipoProduto}</div>}
-          </div>
+      await registrarEntradaProduto(dadosEntrada)
+      await carregarEntradas()
+      
+      window.dispatchEvent(new Event('entradasUpdated'))
+      
+      setFormData({
+        tipoProduto: '',
+        produto: '',
+        quantidade: '',
+        unidade: '',
+        dataEntrada: '',
+        responsavel: '',
+        parceiro: '',
+        tipoDocumento: 'CPF',
+        documento: ''
+      })
+      setShowForm(false)
+      setShowCreateMessage(true)
+      setTimeout(() => {
+        setShowCreateMessage(false)
+      }, 3000)
+    } catch (error) {
+      alert('Erro ao registrar entrada')
+    }
+  }
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Produto</label>
-            <input
-              type="text"
-              value={formData.produto}
-              onChange={(e) => setFormData({...formData, produto: e.target.value})}
-              className={`w-full p-2 border rounded ${erros.produto ? 'border-red-500' : ''}`}
-            />
-            {erros.produto && <div className="text-red-500 text-sm mt-1">{erros.produto}</div>}
-          </div>
+  const handleEdit = (entrada) => {
+    setEditData({
+      tipoProduto: entrada.tipo_produto,
+      produto: entrada.produto,
+      quantidade: entrada.quantidade,
+      unidade: entrada.unidade,
+      dataEntrada: entrada.data_entrada,
+      responsavel: entrada.responsavel,
+      parceiro: entrada.parceiro || '',
+      tipoDocumento: 'CPF',
+      documento: entrada.documento || ''
+    })
+    setSelectedEntrada(entrada)
+    setShowEdit(true)
+  }
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Quantidade</label>
-            <input
-              type="text"
-              value={formData.quantidade}
-              onChange={(e) => setFormData({...formData, quantidade: e.target.value})}
-              className={`w-full p-2 border rounded ${erros.quantidade ? 'border-red-500' : ''}`}
-            />
-            {erros.quantidade && <div className="text-red-500 text-sm mt-1">{erros.quantidade}</div>}
-          </div>
+  const handleUpdate = async (e) => {
+    e.preventDefault()
+    try {
+      // Como não há API de update, vamos excluir e criar novamente
+      await excluirEntradaProduto(selectedEntrada.id)
+      
+      const dadosEntrada = {
+        tipo_produto: editData.tipoProduto,
+        produto: editData.produto,
+        quantidade: parseInt(editData.quantidade),
+        unidade: editData.unidade,
+        data_entrada: editData.dataEntrada,
+        responsavel: editData.responsavel,
+        parceiro: editData.parceiro,
+        documento: editData.documento
+      }
+      
+      await registrarEntradaProduto(dadosEntrada)
+      await carregarEntradas()
+      
+      window.dispatchEvent(new Event('entradasUpdated'))
+      
+      setShowUpdateMessage(true)
+      setTimeout(() => {
+        setShowUpdateMessage(false)
+        setShowEdit(false)
+      }, 2000)
+    } catch (error) {
+      alert('Erro ao atualizar entrada')
+    }
+  }
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">UN</label>
-            <select
-              value={formData.unidade}
-              onChange={(e) => setFormData({...formData, unidade: e.target.value})}
-              className={`w-full p-2 border rounded ${erros.unidade ? 'border-red-500' : ''}`}
-            >
-              <option value="">Selecione a unidade</option>
-              <option value="UN">UN</option>
-              <option value="G">G</option>
-              <option value="KG">KG</option>
-              <option value="L">L</option>
-            </select>
-            {erros.unidade && <div className="text-red-500 text-sm mt-1">{erros.unidade}</div>}
-          </div>
+  const handleDelete = async () => {
+    try {
+      await excluirEntradaProduto(selectedEntrada.id)
+      await carregarEntradas()
+      
+      window.dispatchEvent(new Event('entradasUpdated'))
+      setShowDelete(false)
+      setShowDeleteMessage(true)
+      setTimeout(() => {
+        setShowDeleteMessage(false)
+      }, 3000)
+    } catch (error) {
+      alert('Erro ao excluir entrada')
+    }
+  }
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Data da Entrada</label>
-            <input
-              type="date"
-              value={formData.dataEntrada}
-              onChange={(e) => setFormData({...formData, dataEntrada: e.target.value})}
-              className={`w-full p-2 border rounded ${erros.dataEntrada ? 'border-red-500' : ''}`}
-            />
-            {erros.dataEntrada && <div className="text-red-500 text-sm mt-1">{erros.dataEntrada}</div>}
-          </div>
+  if (loading) {
+    return <div style={{padding: '20px'}}>Carregando...</div>
+  }
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Responsável pelo Registro</label>
-            <input
-              type="text"
-              value={formData.responsavel}
-              onChange={(e) => setFormData({...formData, responsavel: e.target.value})}
-              className={`w-full p-2 border rounded ${erros.responsavel ? 'border-red-500' : ''}`}
-            />
-            {erros.responsavel && <div className="text-red-500 text-sm mt-1">{erros.responsavel}</div>}
-          </div>
+  return (
+    <div style={{padding: '20px', maxWidth: '1200px', margin: '0 auto'}}>
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+        <h1 style={{fontSize: '24px', fontWeight: 'bold'}}>Entrada de Produtos</h1>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          style={{
+            backgroundColor: '#f97316',
+            color: 'white',
+            padding: '10px 20px',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer'
+          }}
+        >
+          {showForm ? 'Cancelar' : 'Nova Entrada'}
+        </button>
+      </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Parceiro / Patrocinador</label>
-            <input
-              type="text"
-              placeholder="Nome do parceiro ou patrocinador"
-              value={formData.parceiro}
-              onChange={(e) => setFormData({...formData, parceiro: e.target.value})}
-              className={`w-full p-2 border rounded ${erros.parceiro ? 'border-red-500' : ''}`}
-            />
-            {erros.parceiro && <div className="text-red-500 text-sm mt-1">{erros.parceiro}</div>}
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Documento</label>
-            <div className="flex gap-2">
+      {showForm && (
+        <form onSubmit={handleSubmit} style={{
+          backgroundColor: 'white',
+          padding: '20px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          marginBottom: '20px'
+        }}>
+          <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '15px'}}>
+            <div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Tipo de Produto:</label>
               <select
-                value={formData.tipoDocumento}
-                onChange={(e) => setFormData({...formData, tipoDocumento: e.target.value, documento: ''})}
-                className="p-2 border rounded w-24"
+                value={formData.tipoProduto}
+                onChange={(e) => setFormData({...formData, tipoProduto: e.target.value})}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                required
               >
-                <option value="CPF">CPF</option>
-                <option value="CNPJ">CNPJ</option>
+                <option value="">Selecione o tipo</option>
+                <option value="Alimento Perecível">Alimento Perecível</option>
+                <option value="Alimento não Perecível">Alimento não Perecível</option>
+                <option value="Higiene Pessoal">Higiene Pessoal</option>
+                <option value="Roupas">Roupas</option>
               </select>
+            </div>
+            <div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Produto:</label>
               <input
                 type="text"
-                value={formData.documento}
-                onChange={handleDocumentoChange}
-                placeholder={formData.tipoDocumento === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00'}
-                className={`flex-1 p-2 border rounded ${erros.documento ? 'border-red-500' : ''}`}
+                value={formData.produto}
+                onChange={(e) => setFormData({...formData, produto: e.target.value})}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                required
               />
             </div>
-            {erros.documento && <div className="text-red-500 text-sm mt-1">{erros.documento}</div>}
-          </div>
-        </div>
-
-        <div className="mt-6 text-center">
-          {editando ? (
-            <div className="space-x-4">
-              <button
-                type="button"
-                onClick={handleAlterarInformacoes}
-                className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600"
-              >
-                Alterar Informações
-              </button>
-              <button
-                type="button"
-                onClick={handleCancelarEdicao}
-                className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600"
-              >
-                Cancelar
-              </button>
+            <div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Quantidade:</label>
+              <input
+                type="text"
+                value={formData.quantidade}
+                onChange={(e) => setFormData({...formData, quantidade: e.target.value})}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                required
+              />
             </div>
-          ) : (
-            <button
-              type="submit"
-              className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
-            >
-              Registrar Entrada
-            </button>
-          )}
-        </div>
-      </form>
+            <div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Unidade:</label>
+              <select
+                value={formData.unidade}
+                onChange={(e) => setFormData({...formData, unidade: e.target.value})}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                required
+              >
+                <option value="">Selecione a unidade</option>
+                <option value="UN">UN</option>
+                <option value="G">G</option>
+                <option value="KG">KG</option>
+                <option value="L">L</option>
+              </select>
+            </div>
+            <div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Data da Entrada:</label>
+              <input
+                type="date"
+                value={formData.dataEntrada}
+                onChange={(e) => setFormData({...formData, dataEntrada: e.target.value})}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                required
+              />
+            </div>
+            <div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Responsável:</label>
+              <select
+                value={formData.responsavel}
+                onChange={(e) => setFormData({...formData, responsavel: e.target.value})}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                required
+              >
+                <option value="">Selecione o responsável</option>
+                {voluntarios.map((voluntario) => (
+                  <option key={voluntario.id} value={voluntario.nome}>
+                    {voluntario.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Parceiro/Patrocinador:</label>
+              <input
+                type="text"
+                value={formData.parceiro}
+                onChange={(e) => setFormData({...formData, parceiro: e.target.value})}
+                style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                placeholder="Nome do parceiro ou patrocinador"
+                required
+              />
+            </div>
+            <div>
+              <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Documento:</label>
+              <div style={{display: 'flex', gap: '8px'}}>
+                <select
+                  value={formData.tipoDocumento}
+                  onChange={(e) => setFormData({...formData, tipoDocumento: e.target.value, documento: ''})}
+                  style={{padding: '8px', border: '1px solid #ccc', borderRadius: '4px', width: '80px'}}
+                >
+                  <option value="CPF">CPF</option>
+                  <option value="CNPJ">CNPJ</option>
+                </select>
+                <input
+                  type="text"
+                  value={formData.documento}
+                  onChange={handleDocumentoChange}
+                  placeholder={formData.tipoDocumento === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00'}
+                  style={{flex: 1, padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                  required
+                />
+              </div>
+            </div>
+          </div>
+          <button
+            type="submit"
+            style={{
+              backgroundColor: '#10b981',
+              color: 'white',
+              padding: '10px 20px',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              marginTop: '15px'
+            }}
+          >
+            Registrar
+          </button>
+        </form>
       )}
 
-      {editando && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-4xl w-full mx-4 max-h-screen overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Editar Entrada de Produto</h2>
-            
-            <form className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Tipo de Produto</label>
-                <select
-                  value={formData.tipoProduto}
-                  onChange={(e) => setFormData({...formData, tipoProduto: e.target.value})}
-                  className={`w-full p-2 border rounded ${erros.tipoProduto ? 'border-red-500' : ''}`}
-                >
-                  <option value="">Selecione o tipo</option>
-                  <option value="Alimento Perecível">Alimento Perecível</option>
-                  <option value="Alimento não Perecível">Alimento não Perecível</option>
-                  <option value="Higiene Pessoal">Higiene Pessoal</option>
-                  <option value="Roupas">Roupas</option>
-                </select>
-                {erros.tipoProduto && <div className="text-red-500 text-sm mt-1">{erros.tipoProduto}</div>}
-              </div>
+      <div style={{backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'}}>
+        <table style={{width: '100%', borderCollapse: 'collapse'}}>
+          <thead>
+            <tr style={{backgroundColor: '#f9fafb'}}>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Cód.</th>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Produto</th>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Tipo</th>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Quantidade</th>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Data</th>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Responsável</th>
+              <th style={{padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb'}}>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entradas.map((entrada) => (
+              <tr key={entrada.id}>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{entrada.cod_entrada}</td>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{entrada.produto}</td>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{entrada.tipo_produto}</td>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{entrada.quantidade} {entrada.unidade}</td>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{new Date(entrada.data_entrada).toLocaleDateString()}</td>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>{entrada.responsavel}</td>
+                <td style={{padding: '12px', borderBottom: '1px solid #e5e7eb'}}>
+                  <div style={{display: 'flex', gap: '5px', flexWrap: 'wrap'}}>
+                    <button
+                      onClick={() => {
+                        setSelectedEntrada(entrada)
+                        setShowDetails(true)
+                      }}
+                      style={{
+                        backgroundColor: '#10b981',
+                        color: 'white',
+                        padding: '4px 8px',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      Detalhes
+                    </button>
+                    <button
+                      onClick={() => handleEdit(entrada)}
+                      style={{
+                        backgroundColor: '#6b7280',
+                        color: 'white',
+                        padding: '4px 8px',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedEntrada(entrada)
+                        setShowDelete(true)
+                      }}
+                      style={{
+                        backgroundColor: '#ef4444',
+                        color: 'white',
+                        padding: '4px 8px',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                    >
+                      Excluir
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Produto</label>
-                <input
-                  type="text"
-                  value={formData.produto}
-                  onChange={(e) => setFormData({...formData, produto: e.target.value})}
-                  className={`w-full p-2 border rounded ${erros.produto ? 'border-red-500' : ''}`}
-                />
-                {erros.produto && <div className="text-red-500 text-sm mt-1">{erros.produto}</div>}
-              </div>
+      {entradas.length === 0 && (
+        <p style={{textAlign: 'center', marginTop: '20px', color: '#666'}}>
+          Nenhuma entrada cadastrada.
+        </p>
+      )}
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Quantidade</label>
-                <input
-                  type="text"
-                  value={formData.quantidade}
-                  onChange={(e) => setFormData({...formData, quantidade: e.target.value})}
-                  className={`w-full p-2 border rounded ${erros.quantidade ? 'border-red-500' : ''}`}
-                />
-                {erros.quantidade && <div className="text-red-500 text-sm mt-1">{erros.quantidade}</div>}
+      {/* Modal de Detalhes */}
+      {showDetails && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '20px',
+            borderRadius: '8px',
+            maxWidth: '600px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <h2 style={{marginBottom: '20px'}}>Detalhes da Entrada</h2>
+            {selectedEntrada && (
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px'}}>
+                <div><strong>Código:</strong> {selectedEntrada.cod_entrada}</div>
+                <div><strong>Produto:</strong> {selectedEntrada.produto}</div>
+                <div><strong>Tipo:</strong> {selectedEntrada.tipo_produto}</div>
+                <div><strong>Quantidade:</strong> {selectedEntrada.quantidade} {selectedEntrada.unidade}</div>
+                <div><strong>Data:</strong> {new Date(selectedEntrada.data_entrada).toLocaleDateString()}</div>
+                <div><strong>Responsável:</strong> {selectedEntrada.responsavel}</div>
+                <div><strong>Parceiro:</strong> {selectedEntrada.parceiro}</div>
+                <div><strong>Documento:</strong> {selectedEntrada.documento}</div>
               </div>
+            )}
+            <div style={{marginTop: '20px', textAlign: 'center'}}>
+              <button
+                onClick={() => setShowDetails(false)}
+                style={{
+                  backgroundColor: '#6b7280',
+                  color: 'white',
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">UN</label>
-                <select
-                  value={formData.unidade}
-                  onChange={(e) => setFormData({...formData, unidade: e.target.value})}
-                  className={`w-full p-2 border rounded ${erros.unidade ? 'border-red-500' : ''}`}
-                >
-                  <option value="">Selecione a unidade</option>
-                  <option value="UN">UN</option>
-                  <option value="G">G</option>
-                  <option value="KG">KG</option>
-                  <option value="L">L</option>
-                </select>
-                {erros.unidade && <div className="text-red-500 text-sm mt-1">{erros.unidade}</div>}
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Data da Entrada</label>
-                <input
-                  type="date"
-                  value={formData.dataEntrada}
-                  onChange={(e) => setFormData({...formData, dataEntrada: e.target.value})}
-                  className={`w-full p-2 border rounded ${erros.dataEntrada ? 'border-red-500' : ''}`}
-                />
-                {erros.dataEntrada && <div className="text-red-500 text-sm mt-1">{erros.dataEntrada}</div>}
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Responsável pelo Registro</label>
-                <input
-                  type="text"
-                  value={formData.responsavel}
-                  onChange={(e) => setFormData({...formData, responsavel: e.target.value})}
-                  className={`w-full p-2 border rounded ${erros.responsavel ? 'border-red-500' : ''}`}
-                />
-                {erros.responsavel && <div className="text-red-500 text-sm mt-1">{erros.responsavel}</div>}
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Parceiro / Patrocinador</label>
-                <input
-                  type="text"
-                  placeholder="Nome do parceiro ou patrocinador"
-                  value={formData.parceiro}
-                  onChange={(e) => setFormData({...formData, parceiro: e.target.value})}
-                  className={`w-full p-2 border rounded ${erros.parceiro ? 'border-red-500' : ''}`}
-                />
-                {erros.parceiro && <div className="text-red-500 text-sm mt-1">{erros.parceiro}</div>}
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Documento</label>
-                <div className="flex gap-2">
+      {/* Modal de Edição */}
+      {showEdit && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '20px',
+            borderRadius: '8px',
+            maxWidth: '800px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <h2 style={{marginBottom: '20px'}}>Editar Entrada</h2>
+            <form onSubmit={handleUpdate}>
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '15px'}}>
+                <div>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Tipo de Produto:</label>
                   <select
-                    value={formData.tipoDocumento}
-                    onChange={(e) => setFormData({...formData, tipoDocumento: e.target.value, documento: ''})}
-                    className="p-2 border rounded w-24"
+                    value={editData.tipoProduto}
+                    onChange={(e) => setEditData({...editData, tipoProduto: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    required
                   >
-                    <option value="CPF">CPF</option>
-                    <option value="CNPJ">CNPJ</option>
+                    <option value="">Selecione o tipo</option>
+                    <option value="Alimento Perecível">Alimento Perecível</option>
+                    <option value="Alimento não Perecível">Alimento não Perecível</option>
+                    <option value="Higiene Pessoal">Higiene Pessoal</option>
+                    <option value="Roupas">Roupas</option>
                   </select>
+                </div>
+                <div>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Produto:</label>
                   <input
                     type="text"
-                    value={formData.documento}
-                    onChange={handleDocumentoChange}
-                    placeholder={formData.tipoDocumento === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00'}
-                    className={`flex-1 p-2 border rounded ${erros.documento ? 'border-red-500' : ''}`}
+                    value={editData.produto}
+                    onChange={(e) => setEditData({...editData, produto: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    required
                   />
                 </div>
-                {erros.documento && <div className="text-red-500 text-sm mt-1">{erros.documento}</div>}
+                <div>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Quantidade:</label>
+                  <input
+                    type="text"
+                    value={editData.quantidade}
+                    onChange={(e) => setEditData({...editData, quantidade: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Unidade:</label>
+                  <select
+                    value={editData.unidade}
+                    onChange={(e) => setEditData({...editData, unidade: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    required
+                  >
+                    <option value="">Selecione a unidade</option>
+                    <option value="UN">UN</option>
+                    <option value="G">G</option>
+                    <option value="KG">KG</option>
+                    <option value="L">L</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Data da Entrada:</label>
+                  <input
+                    type="date"
+                    value={editData.dataEntrada}
+                    onChange={(e) => setEditData({...editData, dataEntrada: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Responsável:</label>
+                  <select
+                    value={editData.responsavel}
+                    onChange={(e) => setEditData({...editData, responsavel: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    required
+                  >
+                    <option value="">Selecione o responsável</option>
+                    {voluntarios.map((voluntario) => (
+                      <option key={voluntario.id} value={voluntario.nome}>
+                        {voluntario.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Parceiro/Patrocinador:</label>
+                  <input
+                    type="text"
+                    value={editData.parceiro}
+                    onChange={(e) => setEditData({...editData, parceiro: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Documento:</label>
+                  <input
+                    type="text"
+                    value={editData.documento}
+                    onChange={(e) => setEditData({...editData, documento: e.target.value})}
+                    style={{width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px'}}
+                    required
+                  />
+                </div>
               </div>
-            </form>
-
-            <div className="mt-6 text-center">
-              <div className="space-x-4">
+              <div style={{marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'flex-end'}}>
                 <button
                   type="button"
-                  onClick={handleAlterarInformacoes}
-                  className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600"
+                  onClick={() => setShowEdit(false)}
+                  style={{
+                    backgroundColor: '#6b7280',
+                    color: 'white',
+                    padding: '10px 20px',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    padding: '10px 20px',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer'
+                  }}
                 >
                   Salvar
                 </button>
-                <button
-                  type="button"
-                  onClick={handleCancelarEdicao}
-                  className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600"
-                >
-                  Cancelar
-                </button>
               </div>
-              {alteracoesConcluidas && (
-                <div className="mt-4 text-green-600 font-medium">
-                  Alterações Concluídas
+              {showUpdateMessage && (
+                <div style={{
+                  marginTop: '15px',
+                  textAlign: 'center',
+                  color: '#10b981',
+                  fontWeight: '500',
+                  fontSize: '16px'
+                }}>
+                  Entrada Atualizada
                 </div>
               )}
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Exclusão */}
+      {showDelete && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '8px',
+            maxWidth: '400px',
+            width: '90%'
+          }}>
+            <h3 style={{marginBottom: '15px', textAlign: 'center'}}>Confirmar Exclusão</h3>
+            <p style={{marginBottom: '20px', textAlign: 'center'}}>
+              Tem certeza que deseja excluir a entrada do produto <strong>{selectedEntrada?.produto}</strong>?
+            </p>
+            <div style={{display: 'flex', gap: '10px', justifyContent: 'center'}}>
+              <button
+                onClick={() => setShowDelete(false)}
+                style={{
+                  backgroundColor: '#6b7280',
+                  color: 'white',
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                style={{
+                  backgroundColor: '#ef4444',
+                  color: 'white',
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
+              >
+                Excluir
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      <div className="mt-8">
-        <h2 className="text-xl font-bold mb-4">Entradas Registradas</h2>
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Cód.</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Data</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Tipo</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Produto</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Quantidade</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">UN</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Responsável</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {entradas
-                .slice((paginaAtual - 1) * itensPorPagina, paginaAtual * itensPorPagina)
-                .map((entrada) => (
-                <tr key={entrada.id}>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{entrada.cod_entrada}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{new Date(entrada.data_entrada).toLocaleDateString()}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{entrada.tipo_produto}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{entrada.produto}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{entrada.quantidade}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{entrada.unidade}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{entrada.responsavel}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <button
-                      onClick={() => handleEditar(entrada.id)}
-                      className="text-blue-600 hover:text-blue-800 mr-3"
-                    >
-                      ✏️ Editar
-                    </button>
-                    <button
-                      onClick={() => handleExcluir(entrada.id)}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      🗑️ Excluir
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-        {entradas.length > itensPorPagina && (
-          <div className="mt-4 flex justify-center">
-            <div className="flex space-x-2">
-              {Array.from({ length: Math.ceil(entradas.length / itensPorPagina) }, (_, i) => (
-                <button
-                  key={i + 1}
-                  onClick={() => setPaginaAtual(i + 1)}
-                  className={`px-3 py-1 rounded ${
-                    paginaAtual === i + 1
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  {i + 1}
-                </button>
-              ))}
+      {/* Modal de Confirmação de Cadastro */}
+      {showCreateMessage && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '8px',
+            maxWidth: '400px',
+            width: '90%',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              fontSize: '48px',
+              color: '#10b981',
+              marginBottom: '15px'
+            }}>
+              ✓
             </div>
-          </div>
-        )}
-      </div>
-
-      {modalExcluir && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-bold mb-4 text-center">Confirmar Exclusão?</h3>
-            <p className="text-gray-600 mb-6 text-center">
-              Deseja realmente excluir a entrada do produto <strong>{itemExcluir?.produto}</strong>?
+            <h3 style={{
+              marginBottom: '10px',
+              color: '#10b981',
+              fontSize: '18px'
+            }}>
+              Sucesso!
+            </h3>
+            <p style={{
+              margin: 0,
+              color: '#666',
+              fontSize: '16px'
+            }}>
+              Entrada registrada com sucesso!
             </p>
-            <div className="text-center">
-              <div className="flex justify-center space-x-4">
-                <button
-                  onClick={confirmarExclusao}
-                  className="bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600"
-                >
-                  Confirmar
-                </button>
-                <button
-                  onClick={cancelarExclusao}
-                  className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600"
-                >
-                  Cancelar
-                </button>
-              </div>
-              {exclusaoConcluida && (
-                <div className="mt-4 text-green-600 font-medium">
-                  Exclusão Concluída
-                </div>
-              )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação de Exclusão */}
+      {showDeleteMessage && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '8px',
+            maxWidth: '400px',
+            width: '90%',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              fontSize: '48px',
+              color: '#ef4444',
+              marginBottom: '15px'
+            }}>
+              ✓
             </div>
+            <h3 style={{
+              marginBottom: '10px',
+              color: '#ef4444',
+              fontSize: '18px'
+            }}>
+              Excluído!
+            </h3>
+            <p style={{
+              margin: 0,
+              color: '#666',
+              fontSize: '16px'
+            }}>
+              Entrada excluída com sucesso!
+            </p>
           </div>
         </div>
       )}
