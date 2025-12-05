@@ -148,6 +148,7 @@ INSERT INTO movimentacoes_financeiras (tipo, valor, documento, nome, beneficiado
 
 
 INSERT INTO voluntarios (nome, cpf, telefone, email, nome_usuario, senha, turno_disponivel, responsavel_por) VALUES 
+    ('Administrador DEV', '000.000.000-00', '(11) 00000-0000', 'dev@ong.com', 'dev', '1234', 'Integral', '["Beneficiados", "Entrada de Produtos", "Saída de Produtos", "Financeiro", "Patrocinadores"]'),
     ('Ana Silva', '123.456.789-01', '(11) 99999-1111', 'ana@ong.com', 'ana.silva', 'senha123', 'Manhã', '["Beneficiados", "Financeiro"]'),
     ('Carlos Santos', '987.654.321-02', '(11) 99999-2222', 'carlos@ong.com', 'carlos.santos', 'senha123', 'Integral', '["Entrada de Produtos", "Saída de Produtos"]'),
     ('Maria Oliveira', '111.222.333-03', '(11) 99999-3333', 'maria@ong.com', 'maria.oliveira', 'senha123', 'Tarde', '["Patrocinadores"]');

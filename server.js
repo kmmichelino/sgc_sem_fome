@@ -7,6 +7,7 @@ import { configurarRotasEstoque } from './src/routes/estoqueRoutes.js'
 import { configurarRotasDoacaoFinanceira } from './src/routes/doacaoFinanceiraRoutes.js'
 import { configurarRotasMovimentacaoFinanceira } from './src/routes/movimentacaoFinanceiraRoutes.js'
 import { configurarRotasBeneficiado } from './src/routes/beneficiadoRoutes.js'
+import { configurarRotasVoluntario } from './src/routes/voluntarioRoutes.js'
 import patrocinadoresRoutes from './src/routes/patrocinadoresRoutes.js'
 
 dotenv.config()
@@ -18,7 +19,7 @@ app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-let estoqueController, doacaoFinanceiraController, movimentacaoFinanceiraController, beneficiadoController
+let estoqueController, doacaoFinanceiraController, movimentacaoFinanceiraController, beneficiadoController, voluntarioController
 
 getConnection().then((connection) => {
   const controllers = configurarDependencias(connection)
@@ -26,6 +27,7 @@ getConnection().then((connection) => {
   doacaoFinanceiraController = controllers.doacaoFinanceiraController
   movimentacaoFinanceiraController = controllers.movimentacaoFinanceiraController
   beneficiadoController = controllers.beneficiadoController
+  voluntarioController = controllers.voluntarioController
   console.log('✓ Controllers configurados com sucesso')
 }).catch((err) => {
   console.error('Erro na configuração das dependências:', err)
@@ -35,6 +37,7 @@ getConnection().then((connection) => {
   doacaoFinanceiraController = controllers.doacaoFinanceiraController
   movimentacaoFinanceiraController = controllers.movimentacaoFinanceiraController
   beneficiadoController = controllers.beneficiadoController
+  voluntarioController = controllers.voluntarioController
 })
 
 app.get('/', (req, res) => {
@@ -47,7 +50,8 @@ app.get('/', (req, res) => {
       doacoesFinanceiras: '/doacoes-financeiras',
       movimentacoesFinanceiras: '/movimentacoes-financeiras',
       patrocinadores: '/patrocinadores',
-      beneficiados: '/beneficiados'
+      beneficiados: '/beneficiados',
+      voluntarios: '/voluntarios'
     }
   })
 })
@@ -58,6 +62,7 @@ setTimeout(() => {
   app.use('/doacoes-financeiras', configurarRotasDoacaoFinanceira(doacaoFinanceiraController))
   app.use('/movimentacoes-financeiras', configurarRotasMovimentacaoFinanceira(movimentacaoFinanceiraController))
   app.use('/beneficiados', configurarRotasBeneficiado(beneficiadoController))
+  app.use('/voluntarios', configurarRotasVoluntario(voluntarioController))
   app.use('/patrocinadores', patrocinadoresRoutes)
 }, 1000)
 
